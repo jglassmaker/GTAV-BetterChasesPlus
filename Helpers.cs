@@ -15,17 +15,29 @@ namespace BetterChasesPlus
         {
             get
             {
+                if (Config.Options.BetterChases.WantedLevelControl != "Full")
+                {
+                    return Game.Player.WantedLevel;
+                }
+
                 return wantedLevel;
             }
             set
             {
-                if (wantedLevel > maxWantedLevel)
+                if (Config.Options.BetterChases.WantedLevelControl != "Full")
                 {
-                    MaxWantedLevel = wantedLevel;
+                    Game.Player.WantedLevel = value;
                 }
+                else
+                {
+                    if (value > maxWantedLevel)
+                    {
+                        MaxWantedLevel = value;
+                    }
 
-                wantedLevel = value;
-                Game.Player.WantedLevel = value;
+                    wantedLevel = value;
+                    Game.Player.WantedLevel = value;
+                }
             }
         }
 
@@ -42,15 +54,113 @@ namespace BetterChasesPlus
             }
         }
 
+        public static int MinGroundUnits
+        {
+            get
+            {
+                int minUnits = 0;
+                switch (wantedLevel)
+                {
+                    case 1:
+                        minUnits = Config.Options.BetterChases.CopDispatch.OneStar.GroundMin;
+                        break;
+                    case 2:
+                        minUnits = Config.Options.BetterChases.CopDispatch.TwoStar.GroundMin;
+                        break;
+                    case 3:
+                        minUnits = Config.Options.BetterChases.CopDispatch.ThreeStar.GroundMin;
+                        break;
+                    case 4:
+                        minUnits = Config.Options.BetterChases.CopDispatch.FourStar.GroundMin;
+                        break;
+                    case 5:
+                        minUnits = Config.Options.BetterChases.CopDispatch.FiveStar.GroundMin;
+                        break;
+                }
+
+                return minUnits;
+            }
+        }
+
+        public static int MaxGroundUnits
+        {
+            get
+            {
+                int maxUnits = 0;
+                switch (wantedLevel)
+                {
+                    case 1:
+                        maxUnits = Config.Options.BetterChases.CopDispatch.OneStar.GroundMax;
+                        break;
+                    case 2:
+                        maxUnits = Config.Options.BetterChases.CopDispatch.TwoStar.GroundMax;
+                        break;
+                    case 3:
+                        maxUnits = Config.Options.BetterChases.CopDispatch.ThreeStar.GroundMax;
+                        break;
+                    case 4:
+                        maxUnits = Config.Options.BetterChases.CopDispatch.FourStar.GroundMax;
+                        break;
+                    case 5:
+                        maxUnits = Config.Options.BetterChases.CopDispatch.FiveStar.GroundMax;
+                        break;
+                }
+
+                return maxUnits;
+            }
+        }
+
+        public static int MinAirUnits
+        {
+            get
+            {
+                int minUnits = 0;
+                switch (wantedLevel)
+                {
+                    case 1:
+                        minUnits = Config.Options.BetterChases.CopDispatch.OneStar.AirMin;
+                        break;
+                    case 2:
+                        minUnits = Config.Options.BetterChases.CopDispatch.TwoStar.AirMin;
+                        break;
+                    case 3:
+                        minUnits = Config.Options.BetterChases.CopDispatch.ThreeStar.AirMin;
+                        break;
+                    case 4:
+                        minUnits = Config.Options.BetterChases.CopDispatch.FourStar.AirMin;
+                        break;
+                    case 5:
+                        minUnits = Config.Options.BetterChases.CopDispatch.FiveStar.AirMin;
+                        break;
+                }
+
+                return minUnits;
+            }
+        }
+
         public static bool IsArmed
         {
             get
             {
-                return Game.Player.Character.Weapons.Current != null && !NotWeapons.Contains(Game.Player.Character.Weapons.Current.Hash);
+                return Game.Player.Character.Weapons.Current != null && !NotWeapons.Contains(Game.Player.Character.Weapons.Current.Hash) && Function.Call<bool>(Hash.IS_PED_ARMED, Game.Player.Character, 7);
             }
         }
 
         public static int[] PedCopTypes = { 6, 27, 29 }; // 6 Cop, 27 SWAT, 29 Army
+
+        public static List<PedHash> PedCopHashes = new List<PedHash>()
+        {
+            PedHash.Cop01SFY,
+            PedHash.Cop01SMY,
+            PedHash.Hwaycop01SMY,
+            PedHash.Sheriff01SFY,
+            PedHash.Sheriff01SMY,
+            PedHash.Snowcop01SMM,
+            PedHash.Swat01SMY,
+            PedHash.CiaSec01SMM,
+            PedHash.FibSec01,
+            PedHash.FibSec01SMM
+        };
 
         public static WeaponHash[] NotWeapons =
         {
@@ -156,6 +266,11 @@ namespace BetterChasesPlus
             if (pedmodel == PedHash.Michael && MasksMichael.Contains(Function.Call<int>(Hash.GET_PED_PROP_INDEX, ped, 0))) return true;
             if (pedmodel == PedHash.Trevor && MasksTrevor.Contains(Function.Call<int>(Hash.GET_PED_PROP_INDEX, ped, 0))) return true;
             return false;
+        }
+
+        public static Model GetModel(int hash)
+        {
+            return new Model(hash);
         }
     }
 }

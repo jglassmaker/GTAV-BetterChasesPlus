@@ -192,7 +192,7 @@ namespace BetterChasesPlus
                         continue;
                     }
 
-                    bool IsCop = Helpers.PedCopTypes.Contains(Function.Call<int>(Hash.GET_PED_TYPE, ped));
+                    bool IsCop = Helpers.PedCopHashes.Contains((PedHash)ped.Model.Hash);
 
                     if ((!IsCop && Citizens.Count >= MaxCitizenWitnesses) || (IsCop && Cops.Count >= MaxCopWitnesses))
                     {
@@ -312,9 +312,9 @@ namespace BetterChasesPlus
         {
             float spottedMultiplier = 1f;
 
-            if (Options.ArrestWarrants.Enabled)
+            if (Config.Options.ArrestWarrants.Enabled)
             {
-                spottedMultiplier = Options.ArrestWarrants.OverallSpotSpeed / 100f;
+                spottedMultiplier = Config.Options.ArrestWarrants.SpotSpeed / 100f;
             }
 
             // Ped Spotted
@@ -350,9 +350,9 @@ namespace BetterChasesPlus
             //// RESET
             spottedMultiplier = 1f;
 
-            if (Options.ArrestWarrants.Enabled)
+            if (Config.Options.ArrestWarrants.Enabled)
             {
-                spottedMultiplier = Options.ArrestWarrants.OverallSpotSpeed / 100f;
+                spottedMultiplier = Config.Options.ArrestWarrants.SpotSpeed / 100f;
             }
 
             // Vehicle Spotted

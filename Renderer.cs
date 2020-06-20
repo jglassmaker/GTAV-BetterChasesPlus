@@ -55,13 +55,6 @@ namespace BetterChasesPlus
         private GTA.UI.TextElement WarrantActive = new GTA.UI.TextElement("~w~WARRANT ACTIVE", new PointF(GTA.UI.Screen.Width - 150, GTA.UI.Screen.Height - 20), 0.4f, Color.White, GTA.UI.Font.ChaletLondon);
         private GTA.UI.TextElement SpottedMeterText = new GTA.UI.TextElement("", new PointF(GTA.UI.Screen.Width - 90, GTA.UI.Screen.Height - 55), 0.3f, Color.White, GTA.UI.Font.ChaletLondon, GTA.UI.Alignment.Center);
 
-        public class UIMarker
-        {
-            public MarkerType Type;
-            public Entity Entity;
-            public Color Color;
-        }
-
         public Renderer()
         {
             Tick += OnTick;
@@ -75,13 +68,6 @@ namespace BetterChasesPlus
         {
             //System.Diagnostics.Stopwatch Stopwatch = System.Diagnostics.Stopwatch.StartNew();
             //Stopwatch.Start();
-            //float ar = (float)Game.ScreenResolution.Width / Game.ScreenResolution.Height;
-            //UI.ShowSubtitle("" + Game.ScreenResolution.Height+ " " + UIScreen.Height + " " + UI.HEIGHT + " " + SafeZoneBounds.Y);
-            //UI.ShowSubtitle("" + Game.ScreenResolution.Width + " " + UIScreen.Width + " " + UI.WIDTH + " " + SafeZoneBounds.X);
-            //UI.ShowSubtitle("" + UISafeZone.Height + " " + UI.HEIGHT + " " + SafeZoneBounds);
-            //UI.ShowSubtitle("" + UIScreen.Width + " " + UI.WIDTH + " " + SafeZoneBounds);
-            //UI.ShowSubtitle("" + Game.ScreenResolution.Width + " " + Game.ScreenResolution.Height + " " + ar);
-            //UI.ShowSubtitle("" + Function.Call<float>(Hash.GET_SAFE_ZONE_SIZE) + " " + SafeZone.X + " " + UI.WIDTH + " " + (float)(Game.ScreenResolution.Width / Game.ScreenResolution.Height));
 
             if (Function.Call<bool>(Hash.IS_HUD_HIDDEN) || Function.Call<bool>(Hash.IS_PLAYER_SWITCH_IN_PROGRESS))
                 return;
@@ -89,60 +75,57 @@ namespace BetterChasesPlus
             Ped Character = Game.Player.Character;
             int WantedLevel = Game.Player.WantedLevel;
 
-            //DateTime expireTest = World.CurrentDate.AddHours(-1);
-            //UI.ShowSubtitle("Time: " + World.CurrentDate.ToString() + " " + expireTest.ToString() + " " + World.CurrentDate.CompareTo(expireTest));
-
             // Option Offsets
-            if ((Options.BetterChases.IconOffsetX != 0 && Options.BetterChases.IconOffsetX != BetterChasesIconOffsetX) || (Options.BetterChases.IconOffsetY != 0 && Options.BetterChases.IconOffsetY != BetterChasesIconOffsetY))
+            if ((Config.Options.BetterChases.IconOffsetX != 0 && Config.Options.BetterChases.IconOffsetX != BetterChasesIconOffsetX) || (Config.Options.BetterChases.IconOffsetY != 0 && Config.Options.BetterChases.IconOffsetY != BetterChasesIconOffsetY))
             {
-                CopsRamSprite.Position = new PointF(GTA.UI.Screen.Width - 265 + Options.BetterChases.IconOffsetX, 5 + Options.BetterChases.IconOffsetY);
-                CopsShootSprite.Position = new PointF(GTA.UI.Screen.Width - 280 + Options.BetterChases.IconOffsetX, 5 + Options.BetterChases.IconOffsetY);
+                CopsRamSprite.Position = new PointF(GTA.UI.Screen.Width - 265 + Config.Options.BetterChases.IconOffsetX, 5 + Config.Options.BetterChases.IconOffsetY);
+                CopsShootSprite.Position = new PointF(GTA.UI.Screen.Width - 280 + Config.Options.BetterChases.IconOffsetX, 5 + Config.Options.BetterChases.IconOffsetY);
                 
                 ShowBetterChasesHUDUntil = Game.GameTime;
-                BetterChasesIconOffsetX = Options.BetterChases.IconOffsetX;
-                BetterChasesIconOffsetY = Options.BetterChases.IconOffsetY;
+                BetterChasesIconOffsetX = Config.Options.BetterChases.IconOffsetX;
+                BetterChasesIconOffsetY = Config.Options.BetterChases.IconOffsetY;
             }
-            else if ((Options.ArrestWarrants.IconOffsetX != 0 && Options.ArrestWarrants.IconOffsetX != ArrestWarrantsIconOffsetX) || (Options.ArrestWarrants.IconOffsetY != 0 && Options.ArrestWarrants.IconOffsetY != ArrestWarrantsIconOffsetY))
+            else if ((Config.Options.ArrestWarrants.IconOffsetX != 0 && Config.Options.ArrestWarrants.IconOffsetX != ArrestWarrantsIconOffsetX) || (Config.Options.ArrestWarrants.IconOffsetY != 0 && Config.Options.ArrestWarrants.IconOffsetY != ArrestWarrantsIconOffsetY))
             {
-                PedWantedSprite.Position = new PointF(GTA.UI.Screen.Width - 130 + Options.ArrestWarrants.IconOffsetX, GTA.UI.Screen.Height - 19 + Options.ArrestWarrants.IconOffsetY);
-                CarWantedSprite.Position = new PointF(GTA.UI.Screen.Width - 144 + Options.ArrestWarrants.IconOffsetX, GTA.UI.Screen.Height - 19 + Options.ArrestWarrants.IconOffsetY);
-                PlaneWantedSprite.Position = new PointF(GTA.UI.Screen.Width - 144 + Options.ArrestWarrants.IconOffsetX, GTA.UI.Screen.Height - 19 + Options.ArrestWarrants.IconOffsetY);
-                HeliWantedSprite.Position = new PointF(GTA.UI.Screen.Width - 144 + Options.ArrestWarrants.IconOffsetX, GTA.UI.Screen.Height - 19 + Options.ArrestWarrants.IconOffsetY);
-                BoatWantedSprite.Position = new PointF(GTA.UI.Screen.Width - 144 + Options.ArrestWarrants.IconOffsetX, GTA.UI.Screen.Height - 19 + Options.ArrestWarrants.IconOffsetY);
-                BikeWantedSprite.Position = new PointF(GTA.UI.Screen.Width - 144 + Options.ArrestWarrants.IconOffsetX, GTA.UI.Screen.Height - 19 + Options.ArrestWarrants.IconOffsetY);
+                PedWantedSprite.Position = new PointF(GTA.UI.Screen.Width - 130 + Config.Options.ArrestWarrants.IconOffsetX, GTA.UI.Screen.Height - 19 + Config.Options.ArrestWarrants.IconOffsetY);
+                CarWantedSprite.Position = new PointF(GTA.UI.Screen.Width - 144 + Config.Options.ArrestWarrants.IconOffsetX, GTA.UI.Screen.Height - 19 + Config.Options.ArrestWarrants.IconOffsetY);
+                PlaneWantedSprite.Position = new PointF(GTA.UI.Screen.Width - 144 + Config.Options.ArrestWarrants.IconOffsetX, GTA.UI.Screen.Height - 19 + Config.Options.ArrestWarrants.IconOffsetY);
+                HeliWantedSprite.Position = new PointF(GTA.UI.Screen.Width - 144 + Config.Options.ArrestWarrants.IconOffsetX, GTA.UI.Screen.Height - 19 + Config.Options.ArrestWarrants.IconOffsetY);
+                BoatWantedSprite.Position = new PointF(GTA.UI.Screen.Width - 144 + Config.Options.ArrestWarrants.IconOffsetX, GTA.UI.Screen.Height - 19 + Config.Options.ArrestWarrants.IconOffsetY);
+                BikeWantedSprite.Position = new PointF(GTA.UI.Screen.Width - 144 + Config.Options.ArrestWarrants.IconOffsetX, GTA.UI.Screen.Height - 19 + Config.Options.ArrestWarrants.IconOffsetY);
 
                 ShowArrestWarrantsHUDUntil = Game.GameTime;
-                ArrestWarrantsIconOffsetX = Options.ArrestWarrants.IconOffsetX;
-                ArrestWarrantsIconOffsetY = Options.ArrestWarrants.IconOffsetY;
+                ArrestWarrantsIconOffsetX = Config.Options.ArrestWarrants.IconOffsetX;
+                ArrestWarrantsIconOffsetY = Config.Options.ArrestWarrants.IconOffsetY;
             }
-            else if ((Options.ArrestWarrants.TextOffsetX != 0 && Options.ArrestWarrants.TextOffsetX != ArrestWarrantsTextOffsetX) || (Options.ArrestWarrants.TextOffsetY != 0 && Options.ArrestWarrants.TextOffsetY != ArrestWarrantsTextOffsetY))
+            else if ((Config.Options.ArrestWarrants.TextOffsetX != 0 && Config.Options.ArrestWarrants.TextOffsetX != ArrestWarrantsTextOffsetX) || (Config.Options.ArrestWarrants.TextOffsetY != 0 && Config.Options.ArrestWarrants.TextOffsetY != ArrestWarrantsTextOffsetY))
             {
-                SuspectWanted = new GTA.UI.TextElement("~w~SUSPECT WANTED", new PointF(GTA.UI.Screen.Width - 150 + Options.ArrestWarrants.TextOffsetX, GTA.UI.Screen.Height - 20 + Options.ArrestWarrants.TextOffsetY), 0.4f, Color.White, GTA.UI.Font.ChaletLondon);
-                WarrantActive = new GTA.UI.TextElement("~w~WARRANT ACTIVE", new PointF(GTA.UI.Screen.Width - 150 + Options.ArrestWarrants.TextOffsetX, GTA.UI.Screen.Height - 20 + Options.ArrestWarrants.TextOffsetY), 0.4f, Color.White, GTA.UI.Font.ChaletLondon);
+                SuspectWanted = new GTA.UI.TextElement("~w~SUSPECT WANTED", new PointF(GTA.UI.Screen.Width - 150 + Config.Options.ArrestWarrants.TextOffsetX, GTA.UI.Screen.Height - 20 + Config.Options.ArrestWarrants.TextOffsetY), 0.4f, Color.White, GTA.UI.Font.ChaletLondon);
+                WarrantActive = new GTA.UI.TextElement("~w~WARRANT ACTIVE", new PointF(GTA.UI.Screen.Width - 150 + Config.Options.ArrestWarrants.TextOffsetX, GTA.UI.Screen.Height - 20 + Config.Options.ArrestWarrants.TextOffsetY), 0.4f, Color.White, GTA.UI.Font.ChaletLondon);
                 
                 ShowArrestWarrantsHUDUntil = Game.GameTime;
-                ArrestWarrantsTextOffsetX = Options.ArrestWarrants.TextOffsetX;
-                ArrestWarrantsTextOffsetY = Options.ArrestWarrants.TextOffsetY;
+                ArrestWarrantsTextOffsetX = Config.Options.ArrestWarrants.TextOffsetX;
+                ArrestWarrantsTextOffsetY = Config.Options.ArrestWarrants.TextOffsetY;
             }
-            else if ((Options.ArrestWarrants.GradientOffsetX != 0 && Options.ArrestWarrants.GradientOffsetX != ArrestWarrantsGradientOffsetX) || (Options.ArrestWarrants.GradientOffsetY != 0 && Options.ArrestWarrants.GradientOffsetY != ArrestWarrantsGradientOffsetY))
+            else if ((Config.Options.ArrestWarrants.GradientOffsetX != 0 && Config.Options.ArrestWarrants.GradientOffsetX != ArrestWarrantsGradientOffsetX) || (Config.Options.ArrestWarrants.GradientOffsetY != 0 && Config.Options.ArrestWarrants.GradientOffsetY != ArrestWarrantsGradientOffsetY))
             {
-                WantedGradient.Position = new PointF(GTA.UI.Screen.Width - 490 + Options.ArrestWarrants.GradientOffsetX, GTA.UI.Screen.Height - 22 + Options.ArrestWarrants.GradientOffsetY);
-                MichaelGradient.Position = new PointF(GTA.UI.Screen.Width - 490 + Options.ArrestWarrants.GradientOffsetX, GTA.UI.Screen.Height - 22 + Options.ArrestWarrants.GradientOffsetY);
-                FranklinGradient.Position = new PointF(GTA.UI.Screen.Width - 490 + Options.ArrestWarrants.GradientOffsetX, GTA.UI.Screen.Height - 22 + Options.ArrestWarrants.GradientOffsetY);
-                TrevorGradient.Position = new PointF(GTA.UI.Screen.Width - 490 + Options.ArrestWarrants.GradientOffsetX, GTA.UI.Screen.Height - 22 + Options.ArrestWarrants.GradientOffsetY);
-                DimGradient.Position = new PointF(GTA.UI.Screen.Width - 490 + Options.ArrestWarrants.GradientOffsetX, GTA.UI.Screen.Height - 22 + Options.ArrestWarrants.GradientOffsetY);
+                WantedGradient.Position = new PointF(GTA.UI.Screen.Width - 490 + Config.Options.ArrestWarrants.GradientOffsetX, GTA.UI.Screen.Height - 22 + Config.Options.ArrestWarrants.GradientOffsetY);
+                MichaelGradient.Position = new PointF(GTA.UI.Screen.Width - 490 + Config.Options.ArrestWarrants.GradientOffsetX, GTA.UI.Screen.Height - 22 + Config.Options.ArrestWarrants.GradientOffsetY);
+                FranklinGradient.Position = new PointF(GTA.UI.Screen.Width - 490 + Config.Options.ArrestWarrants.GradientOffsetX, GTA.UI.Screen.Height - 22 + Config.Options.ArrestWarrants.GradientOffsetY);
+                TrevorGradient.Position = new PointF(GTA.UI.Screen.Width - 490 + Config.Options.ArrestWarrants.GradientOffsetX, GTA.UI.Screen.Height - 22 + Config.Options.ArrestWarrants.GradientOffsetY);
+                DimGradient.Position = new PointF(GTA.UI.Screen.Width - 490 + Config.Options.ArrestWarrants.GradientOffsetX, GTA.UI.Screen.Height - 22 + Config.Options.ArrestWarrants.GradientOffsetY);
 
                 ShowArrestWarrantsHUDUntil = Game.GameTime;
-                ArrestWarrantsGradientOffsetX = Options.ArrestWarrants.GradientOffsetX;
-                ArrestWarrantsGradientOffsetY = Options.ArrestWarrants.GradientOffsetY;
+                ArrestWarrantsGradientOffsetX = Config.Options.ArrestWarrants.GradientOffsetX;
+                ArrestWarrantsGradientOffsetY = Config.Options.ArrestWarrants.GradientOffsetY;
             }
 
-            if (Options.Menu.MainPool.IsAnyMenuOpen() && ShowBetterChasesHUDUntil != 0 && ShowBetterChasesHUDUntil + OffsetChangeDisplayLength > Game.GameTime)
+            if (Config.IsMenuOpen && ShowBetterChasesHUDUntil != 0 && ShowBetterChasesHUDUntil + OffsetChangeDisplayLength > Game.GameTime)
             {
                 CopsRamSprite.Draw();
                 CopsShootSprite.Draw();
             }
-            else if (Options.Menu.MainPool.IsAnyMenuOpen() && ShowArrestWarrantsHUDUntil != 0 && ShowArrestWarrantsHUDUntil + OffsetChangeDisplayLength > Game.GameTime)
+            else if (Config.IsMenuOpen && ShowArrestWarrantsHUDUntil != 0 && ShowArrestWarrantsHUDUntil + OffsetChangeDisplayLength > Game.GameTime)
             {
                 WantedGradient.Draw();
                 PedWantedSprite.Draw();
@@ -151,17 +134,17 @@ namespace BetterChasesPlus
             }
             else
             {
-                if (Options.BetterChases.ShowHUD && BetterChases.PITAuthorized && WantedLevel > 0)
+                if (Config.Options.BetterChases.ShowHUD && BetterChases.ActiveChase.PITAuthorized && WantedLevel > 0)
                 {
                     CopsRamSprite.Draw();
                 }
 
-                if (Options.BetterChases.ShowHUD && BetterChases.DeadlyForce && WantedLevel > 0)
+                if (Config.Options.BetterChases.ShowHUD && BetterChases.ActiveChase.DeadlyForce && WantedLevel > 0)
                 {
                     CopsShootSprite.Draw();
                 }
-            
-                if (Options.ArrestWarrants.ShowHUD && (ArrestWarrants.PedWarrant.ped.IsValid || (ArrestWarrants.VehicleWarrant.vehicle.IsValid && Helpers.IsValid(Character.CurrentVehicle) && Character.CurrentVehicle.Model.Hash == ArrestWarrants.VehicleWarrant.vehicle.Hash)))
+                
+                if (Config.Options.ArrestWarrants.ShowHUD && (ArrestWarrants.PedWarrant.pedHash != 0 || (ArrestWarrants.VehicleWarrant.vehicleHash != 0 && Helpers.IsValid(Character.CurrentVehicle) && Character.CurrentVehicle.Model.Hash == ArrestWarrants.VehicleWarrant.vehicleHash)))
                 {
                     if (WantedLevel > 0 || Function.Call<bool>(Hash.ARE_PLAYER_STARS_GREYED_OUT, Game.Player))
                     {
@@ -190,30 +173,30 @@ namespace BetterChasesPlus
                         }
                     }
 
-                    if (ArrestWarrants.PedWarrant.ped.IsValid)
+                    if (ArrestWarrants.PedWarrant.pedHash != 0)
                     {
                         PedWantedSprite.Draw();
                     }
 
-                    if (ArrestWarrants.VehicleWarrant.vehicle.IsValid && Helpers.IsValid(Character.CurrentVehicle) && Character.CurrentVehicle.Model.Hash == ArrestWarrants.VehicleWarrant.vehicle.Hash)
+                    if (ArrestWarrants.VehicleWarrant.vehicleHash != 0 && Helpers.IsValid(Character.CurrentVehicle) && Character.CurrentVehicle.Model.Hash == ArrestWarrants.VehicleWarrant.vehicleHash)
                     {
-                        if (ArrestWarrants.VehicleWarrant.vehicle.IsCar)
+                        if (Helpers.GetModel(ArrestWarrants.VehicleWarrant.vehicleHash).IsCar)
                         {
                             CarWantedSprite.Draw();
                         }
-                        else if (ArrestWarrants.VehicleWarrant.vehicle.IsBicycle || ArrestWarrants.VehicleWarrant.vehicle.IsBike)
+                        else if (Helpers.GetModel(ArrestWarrants.VehicleWarrant.vehicleHash).IsBicycle || Helpers.GetModel(ArrestWarrants.VehicleWarrant.vehicleHash).IsBike)
                         {
                             BikeWantedSprite.Draw();
                         }
-                        else if (ArrestWarrants.VehicleWarrant.vehicle.IsBoat)
+                        else if (Helpers.GetModel(ArrestWarrants.VehicleWarrant.vehicleHash).IsBoat)
                         {
                             BoatWantedSprite.Draw();
                         }
-                        else if (ArrestWarrants.VehicleWarrant.vehicle.IsPlane)
+                        else if (Helpers.GetModel(ArrestWarrants.VehicleWarrant.vehicleHash).IsPlane)
                         {
                             PlaneWantedSprite.Draw();
                         }
-                        else if (ArrestWarrants.VehicleWarrant.vehicle.IsHelicopter)
+                        else if (Helpers.GetModel(ArrestWarrants.VehicleWarrant.vehicleHash).IsHelicopter)
                         {
                             HeliWantedSprite.Draw();
                         }
@@ -221,9 +204,8 @@ namespace BetterChasesPlus
                 }
             }
 
-
             // Recognition Markers
-            if (Markers.Count > 0)
+            if (Config.Options.ArrestWarrants.ShowSpottedIndicators && Markers.Count > 0)
             {
                 foreach (UIMarker marker in Markers)
                 {
@@ -232,7 +214,7 @@ namespace BetterChasesPlus
             }
 
             // Recognition meter
-            if (Options.ArrestWarrants.ShowSpottedMeter && Markers.Count > 0 && ArrestWarrants.ShowSpottedMeter)
+            if (Config.Options.ArrestWarrants.ShowSpottedMeter && Markers.Count > 0 && ArrestWarrants.ShowSpottedMeter)
             {
                 SpottedMeterBG.Draw();
                 SpottedMeterText.Caption = "A cop is watching you.~n~~y~Recognition process: ~r~" + Math.Round(ArrestWarrants.SpottedMeter, 0) + "%";
@@ -275,6 +257,13 @@ namespace BetterChasesPlus
             //UI.ShowSubtitle("Debug: " + "" + " CPU: " + Stopwatch.Elapsed);
         }
 
+        public static void ShowSubtitle(string text, int duration = 2500)
+        {
+            Function.Call(Hash.BEGIN_TEXT_COMMAND_PRINT, "CELL_EMAIL_BCON");
+            Function.Call(Hash.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME, text);
+            Function.Call(Hash.END_TEXT_COMMAND_PRINT, duration, true);
+        }
+
         public static void ShowHelpMessage(string text)
         {
             HelpMessages.Add(text);
@@ -293,15 +282,11 @@ namespace BetterChasesPlus
             BigMessages.Add(message);
         }
 
-        public static void TestBig(string text)
+        public class UIMarker
         {
-            BigMessage message = new BigMessage
-            {
-                text = text,
-                color = HudColor.RED,
-                background = HudColor.BLACK
-            };
-            BigMessages.Add(message);
+            public MarkerType Type;
+            public Entity Entity;
+            public Color Color;
         }
 
         private class BigMessage

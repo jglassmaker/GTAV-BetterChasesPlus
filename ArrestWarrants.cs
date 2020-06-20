@@ -4,6 +4,8 @@ using GTA.Native;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.IO;
+using System.Xml.Serialization;
 
 namespace BetterChasesPlus
 {
@@ -31,20 +33,12 @@ namespace BetterChasesPlus
             public int WantedLevel = 0;
             public int WarrantCheckTime = 0;
             public DateTime WarrantIssueTime = new DateTime();
-            public DateTime ChaseStartTime = new DateTime();
-            public int VehicleCrashes = 0;
-            public bool DeadlyForce = false;
-            public bool PITAuthorized = false;
-            public bool RecklessDriving = false;
-            public bool ExcessiveSpeeding = false;
-            public bool HitandRun = false;
-            public int KilledPeds = 0;
-            public int KilledCops = 0;
-            public Model ped;
-            public Model vehicle;
             public Vector3 LastKnownLocation;
             public VehicleDescription VehicleDescription = new VehicleDescription();
             public PedDescription PedDescription = new PedDescription();
+            public int pedHash = 0;
+            public int vehicleHash = 0;
+            public BetterChases.Chase Chase = new BetterChases.Chase();
         }
 
         public class VehicleDescription
@@ -91,6 +85,8 @@ namespace BetterChasesPlus
             Tick += OnTick;
 
             Interval = 250;
+
+            LoadWarrants();
         }
 
         private void OnTick(object sender, EventArgs e)
@@ -98,7 +94,7 @@ namespace BetterChasesPlus
             //System.Diagnostics.Stopwatch Stopwatch = System.Diagnostics.Stopwatch.StartNew();
             //Stopwatch.Start();
 
-            if (Options.ArrestWarrants.Enabled == false)
+            if (Config.Options.ArrestWarrants.Enabled == false)
                 return;
 
             int wantedLevel = Game.Player.WantedLevel;
@@ -106,13 +102,13 @@ namespace BetterChasesPlus
             IsWanted = Game.Player.WantedLevel > 0 ? true : false;
 
             // Arrested -- Clear Warrant
-            if (!IsWanted && (ActiveWarrant.ped.IsValid || ActiveWarrant.vehicle.IsValid) && Function.Call<int>(Hash.GET_TIME_SINCE_LAST_ARREST) >= 0 && Function.Call<int>(Hash.GET_TIME_SINCE_LAST_ARREST) < 10000)
+            if (!IsWanted && (ActiveWarrant.pedHash != 0 || ActiveWarrant.vehicleHash != 0) && Function.Call<int>(Hash.GET_TIME_SINCE_LAST_ARREST) >= 0 && Function.Call<int>(Hash.GET_TIME_SINCE_LAST_ARREST) < 10000)
             {
                 ClearWarrant(ActiveWarrant);
             }
 
             // Died -- Clear Warrant
-            if (!IsWanted && (ActiveWarrant.ped.IsValid || ActiveWarrant.vehicle.IsValid) && Function.Call<int>(Hash.GET_TIME_SINCE_LAST_DEATH) >= 0 && Function.Call<int>(Hash.GET_TIME_SINCE_LAST_DEATH) < 10000)
+            if (!IsWanted && (ActiveWarrant.pedHash != 0 || ActiveWarrant.vehicleHash != 0) && Function.Call<int>(Hash.GET_TIME_SINCE_LAST_DEATH) >= 0 && Function.Call<int>(Hash.GET_TIME_SINCE_LAST_DEATH) < 10000)
             {
                 ClearWarrant(ActiveWarrant);
             }
@@ -129,7 +125,7 @@ namespace BetterChasesPlus
             else if (!IsWanted && WasWanted)
             {
                 // Issue Warrant
-                if (ActiveWarrant.WantedLevel > 0 && (ActiveWarrant.ped.IsValid || ActiveWarrant.vehicle.IsValid))
+                if (ActiveWarrant.WantedLevel > 0 && (ActiveWarrant.pedHash != 0 || ActiveWarrant.vehicleHash != 0))
                 {
                     IssueWarrant(ActiveWarrant);
                 }
@@ -137,24 +133,24 @@ namespace BetterChasesPlus
             else
             {
                 // Record Highest Wanted Level for Warrant
-                if (wantedLevel > ActiveWarrant.WantedLevel && (ActiveWarrant.ped.IsValid || ActiveWarrant.vehicle.IsValid))
+                if (wantedLevel > ActiveWarrant.WantedLevel && (ActiveWarrant.pedHash != 0 || ActiveWarrant.vehicleHash != 0))
                 {
                     ActiveWarrant.WantedLevel = wantedLevel;
                 }
 
                 // Reference Ped & Vehicle warrants
-                PedWarrant = ActiveWarrant.ped.IsValid ? ActiveWarrant : new Warrant();
-                VehicleWarrant = ActiveWarrant.vehicle.IsValid ? ActiveWarrant : new Warrant();
+                PedWarrant = ActiveWarrant.pedHash != 0 ? ActiveWarrant : new Warrant();
+                VehicleWarrant = Helpers.GetModel(ActiveWarrant.vehicleHash).IsValid ? ActiveWarrant : new Warrant();
                 if (Warrants.Count > 0)
                 {
                     foreach (Warrant warrant in Warrants)
                     {
-                        if (warrant.ped.IsValid && warrant.ped.Hash == character.Model.Hash)
+                        if (warrant.pedHash != 0 && warrant.pedHash == character.Model.Hash)
                         {
                             PedWarrant = warrant;
                         }
 
-                        if (warrant.vehicle.IsValid && Helpers.IsValid(character.CurrentVehicle) && warrant.vehicle.Hash == character.CurrentVehicle.Model.Hash)
+                        if (warrant.vehicleHash != 0 && Helpers.IsValid(character.CurrentVehicle) && warrant.vehicleHash == character.CurrentVehicle.Model.Hash)
                         {
                             VehicleWarrant = warrant;
                         }
@@ -162,32 +158,32 @@ namespace BetterChasesPlus
                 }
 
                 // Clear Warrant (Warrant time has expired)
-                if (PedWarrant.WantedLevel > 0 && !IsWanted && PedWarrant.ped.IsValid && World.CurrentDate.CompareTo(WarrantExpireTime(PedWarrant)) == 1)
+                if (PedWarrant.WantedLevel > 0 && !IsWanted && PedWarrant.pedHash != 0 && World.CurrentDate.CompareTo(WarrantExpireTime(PedWarrant)) == 1)
                 {
                     ClearWarrant(PedWarrant);
                 }
-                else if (VehicleWarrant.WantedLevel > 0 && !IsWanted && VehicleWarrant.vehicle.IsValid && World.CurrentDate.CompareTo(WarrantExpireTime(VehicleWarrant)) == 1)
+                else if (VehicleWarrant.WantedLevel > 0 && !IsWanted && VehicleWarrant.vehicleHash != 0 && World.CurrentDate.CompareTo(WarrantExpireTime(VehicleWarrant)) == 1)
                 {
                     ClearWarrant(VehicleWarrant);
                 }
 
                 // Give a UI update on Arrest Warrant
-                if (Options.ArrestWarrants.ShowNotifications)
+                if (Config.Options.ArrestWarrants.ShowNotifications)
                 {
-                    if (PedWarrant.WantedLevel > 0 && !IsWanted && PedWarrant.ped.IsValid && PedWarrant.WarrantCheckTime + WarrantCheckFrequency < Game.GameTime)
+                    if (PedWarrant.WantedLevel > 0 && !IsWanted && PedWarrant.pedHash != 0 && PedWarrant.WarrantCheckTime + WarrantCheckFrequency < Game.GameTime)
                     {
                         CheckWarrant(PedWarrant);
                     }
-                    else if (VehicleWarrant.WantedLevel > 0 && !IsWanted && VehicleWarrant.vehicle.IsValid && VehicleWarrant.WarrantCheckTime + WarrantCheckFrequency < Game.GameTime)
+                    else if (VehicleWarrant.WantedLevel > 0 && !IsWanted && VehicleWarrant.vehicleHash != 0 && VehicleWarrant.WarrantCheckTime + WarrantCheckFrequency < Game.GameTime)
                     {
                         CheckWarrant(VehicleWarrant);
                     }
                     // When character changed show warrants
-                    else if (PedWarrant.WantedLevel > 0 && !IsWanted && PedWarrant.ped.IsValid && character.Model.Hash != ActiveCharacter.Model.Hash)
+                    else if (PedWarrant.WantedLevel > 0 && !IsWanted && PedWarrant.pedHash != 0 && character.Model.Hash != ActiveCharacter.Model.Hash)
                     {
                         CheckWarrant(PedWarrant);
                     }
-                    else if (VehicleWarrant.WantedLevel > 0 && !IsWanted && VehicleWarrant.vehicle.IsValid && character.Model.Hash != ActiveCharacter.Model.Hash)
+                    else if (VehicleWarrant.WantedLevel > 0 && !IsWanted && VehicleWarrant.vehicleHash != 0 && character.Model.Hash != ActiveCharacter.Model.Hash)
                     {
                         CheckWarrant(VehicleWarrant);
                     }
@@ -195,7 +191,7 @@ namespace BetterChasesPlus
             }
 
             // Identify Character
-            if (IsWanted && !ActiveWarrant.ped.IsValid)
+            if (IsWanted && ActiveWarrant.pedHash == 0)
             {
                 CopSearch = true;
 
@@ -208,7 +204,7 @@ namespace BetterChasesPlus
             }
 
             // Identify Vehicle
-            if (IsWanted && Helpers.IsValid(character.CurrentVehicle) && (!ActiveWarrant.vehicle.IsValid || character.CurrentVehicle.Model.Hash != ActiveWarrant.vehicle.Hash))
+            if (IsWanted && Helpers.IsValid(character.CurrentVehicle) && (ActiveWarrant.vehicleHash == 0 || character.CurrentVehicle.Model.Hash != ActiveWarrant.vehicleHash))
             {
                 CopSearch = true;
 
@@ -221,7 +217,7 @@ namespace BetterChasesPlus
             }
 
             // Warrent search
-            if (!IsWanted && (PedWarrant.ped.IsValid || (VehicleWarrant.vehicle.IsValid && Helpers.IsValid(character.CurrentVehicle) && VehicleWarrant.vehicle.Hash == character.CurrentVehicle.Model.Hash)))
+            if (!IsWanted && (PedWarrant.pedHash != 0 || (VehicleWarrant.vehicleHash != 0 && Helpers.IsValid(character.CurrentVehicle) && VehicleWarrant.vehicleHash == character.CurrentVehicle.Model.Hash)))
             {
                 CopSearch = true;
                 ShowSpottedMeter = false;
@@ -242,7 +238,7 @@ namespace BetterChasesPlus
                 {
                     double spotted = 0;
 
-                    if (PedWarrant.ped.IsValid && (VehicleWarrant.vehicle.IsValid && Helpers.IsValid(character.CurrentVehicle) && VehicleWarrant.vehicle.Hash == character.CurrentVehicle.Model.Hash))
+                    if (PedWarrant.pedHash != 0 && (VehicleWarrant.vehicleHash != 0 && Helpers.IsValid(character.CurrentVehicle) && VehicleWarrant.vehicleHash == character.CurrentVehicle.Model.Hash))
                     {
                         spotted = Math.Max(cop.Spotted, cop.VehicleSpotted);
                         if (cop.Spotted > cop.VehicleSpotted)
@@ -250,11 +246,11 @@ namespace BetterChasesPlus
                             pedSpotted = true;
                         }
                     }
-                    else if (VehicleWarrant.vehicle.IsValid && Helpers.IsValid(character.CurrentVehicle) && VehicleWarrant.vehicle.Hash == character.CurrentVehicle.Model.Hash)
+                    else if (VehicleWarrant.vehicleHash != 0 && Helpers.IsValid(character.CurrentVehicle) && VehicleWarrant.vehicleHash == character.CurrentVehicle.Model.Hash)
                     {
                         spotted = cop.VehicleSpotted;
                     }
-                    else if (PedWarrant.ped.IsValid)
+                    else if (PedWarrant.pedHash != 0)
                     {
                         spotted = cop.Spotted;
                         pedSpotted = true;
@@ -328,7 +324,7 @@ namespace BetterChasesPlus
 
                         if (spotted > maxSpotted) maxSpotted = spotted;
 
-                        if (Options.ArrestWarrants.ShowSpottedMeter) Renderer.Markers.Add(Marker);
+                        if (Config.Options.ArrestWarrants.ShowSpottedMeter) Renderer.Markers.Add(Marker);
                     }
                 }
 
@@ -360,37 +356,37 @@ namespace BetterChasesPlus
             }
 
             // Stolen vehicle (needs to be at the bottom)
-            if (Options.ArrestWarrants.EnableStolenVehicles && !IsWanted && Helpers.IsValid(character.CurrentVehicle) && character.CurrentVehicle.IsStolen && (!VehicleWarrant.vehicle.IsValid || VehicleWarrant.vehicle.Hash != character.CurrentVehicle.Model.Hash))
-            {
-                CopSearch = true;
+            //if (Options.ArrestWarrants.EnableStolenVehicles && !IsWanted && Helpers.IsValid(character.CurrentVehicle) && character.CurrentVehicle.IsStolen && (VehicleWarrant.vehicleHash == 0 || VehicleWarrant.vehicleHash != character.CurrentVehicle.Model.Hash))
+            //{
+            //    CopSearch = true;
 
-                if (Witnesses.GetMaxRecognition(Witnesses.Cops, true) >= Options.ArrestWarrants.StolenRecognitionThreshold)
-                {
-                    CopSearch = false;
-                    Helpers.WantedLevel = 1;
-                    ActiveWarrant.vehicle = character.CurrentVehicle.Model;
+            //    if (Witnesses.GetMaxRecognition(Witnesses.Cops, true) >= Options.ArrestWarrants.StolenRecognitionThreshold)
+            //    {
+            //        CopSearch = false;
+            //        Helpers.WantedLevel = 1;
+            //        ActiveWarrant.vehicleHash = character.CurrentVehicle.Model.Hash;
 
-                    if (Options.ArrestWarrants.ShowNotifications)
-                    {
-                        Function.Call(Hash.BEGIN_TEXT_COMMAND_THEFEED_POST, "STRING");
-                        Function.Call(Hash.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME, "Model: ~y~" + character.CurrentVehicle.LocalizedName + "~w~~n~Color: ~y~" + SimplifyColorString(GetVehicleColors(character.CurrentVehicle).primary.ToString()) + "~w~~n~Plate: ~y~" + Function.Call<string>(Hash.GET_VEHICLE_NUMBER_PLATE_TEXT, character.CurrentVehicle));
-                        Function.Call(Hash.END_TEXT_COMMAND_THEFEED_POST_MESSAGETEXT, "WEB_LOSSANTOSPOLICEDEPT", "WEB_LOSSANTOSPOLICEDEPT", true, 0, "STOLEN VEHICLE LOCATED", "~c~LSPD");
+            //        if (Options.ArrestWarrants.ShowNotifications)
+            //        {
+            //            Function.Call(Hash.BEGIN_TEXT_COMMAND_THEFEED_POST, "STRING");
+            //            Function.Call(Hash.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME, "Model: ~y~" + character.CurrentVehicle.LocalizedName + "~w~~n~Color: ~y~" + SimplifyColorString(GetVehicleColors(character.CurrentVehicle).primary.ToString()) + "~w~~n~Plate: ~y~" + Function.Call<string>(Hash.GET_VEHICLE_NUMBER_PLATE_TEXT, character.CurrentVehicle));
+            //            Function.Call(Hash.END_TEXT_COMMAND_THEFEED_POST_MESSAGETEXT, "WEB_LOSSANTOSPOLICEDEPT", "WEB_LOSSANTOSPOLICEDEPT", true, 0, "STOLEN VEHICLE LOCATED", "~c~LSPD");
                         
-                    }
+            //        }
 
-                    if (Options.DisplayHints)
-                    {
-                        Renderer.ShowHelpMessage("The ~b~LSPD~w~ has identified your vehicle as stolen.");
-                    }
+            //        if (Options.DisplayHints)
+            //        {
+            //            Renderer.ShowHelpMessage("The ~b~LSPD~w~ has identified your vehicle as stolen.");
+            //        }
 
-                    if (Options.ArrestWarrants.ShowBigMessages)
-                    {
-                        Renderer.ShowBigMessage("STOLEN VEHICLE", "", Renderer.HudColor.GOLD, Renderer.HudColor.BLACK, 3000);
-                    }
+            //        if (Options.ArrestWarrants.ShowBigMessages)
+            //        {
+            //            Renderer.ShowBigMessage("STOLEN VEHICLE", "", Renderer.HudColor.GOLD, Renderer.HudColor.BLACK, 3000);
+            //        }
 
-                    VehicleWarrant = ActiveWarrant;
-                }
-            }
+            //        VehicleWarrant = ActiveWarrant;
+            //    }
+            //}
 
             // Update last known position
             if (IsWanted && (Witnesses.GetMaxRecognition(Witnesses.Cops, true) > 0 || Witnesses.GetMaxRecognition(Witnesses.Cops) > 0))
@@ -411,32 +407,31 @@ namespace BetterChasesPlus
             {
                 foreach (Warrant warrant in Warrants)
                 {
-                    if (warrant.vehicle.IsValid && warrant.vehicle.Hash == character.CurrentVehicle.Model.Hash)
+                    if (warrant.vehicleHash != 0 && warrant.vehicleHash == character.CurrentVehicle.Model.Hash)
                     {
                         // Merge warrants
                         ActiveWarrant.WantedLevel = ActiveWarrant.WantedLevel > warrant.WantedLevel ? ActiveWarrant.WantedLevel : warrant.WantedLevel;
-                        ActiveWarrant.VehicleCrashes = ActiveWarrant.VehicleCrashes > warrant.VehicleCrashes ? ActiveWarrant.VehicleCrashes : warrant.VehicleCrashes;
-                        ActiveWarrant.DeadlyForce = ActiveWarrant.DeadlyForce ? ActiveWarrant.DeadlyForce : warrant.DeadlyForce;
-                        ActiveWarrant.PITAuthorized = ActiveWarrant.PITAuthorized ? ActiveWarrant.PITAuthorized : warrant.PITAuthorized;
-                        ActiveWarrant.ped = ActiveWarrant.ped.IsValid ? ActiveWarrant.ped : warrant.ped;
-                        ActiveWarrant.vehicle = warrant.vehicle;
+                        ActiveWarrant.Chase = BetterChases.MergeChases(ActiveWarrant.Chase, warrant.Chase);
+                        ActiveWarrant.pedHash = ActiveWarrant.pedHash != 0 ? ActiveWarrant.pedHash : warrant.pedHash;
+                        ActiveWarrant.vehicleHash = warrant.vehicleHash;
                         Warrants.Remove(warrant);
                         Helpers.WantedLevel = ActiveWarrant.WantedLevel;
+                        BetterChases.ActiveChase = ActiveWarrant.Chase;
                         break;
                     }
                 }
             }
 
-            if (ActiveWarrant.vehicle.IsValid && character.CurrentVehicle.Model.Hash == ActiveWarrant.vehicle.Hash)
+            if (ActiveWarrant.vehicleHash != 0 && character.CurrentVehicle.Model.Hash == ActiveWarrant.vehicleHash)
             {
-                if (Options.ArrestWarrants.ShowNotifications && showPlayerMessages)
+                if (Config.Options.ArrestWarrants.ShowNotifications && showPlayerMessages)
                 {
                     Function.Call(Hash.BEGIN_TEXT_COMMAND_THEFEED_POST, "STRING");
                     Function.Call(Hash.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME, "Model: ~y~" + character.CurrentVehicle.LocalizedName + "~w~~n~Color: ~y~" + SimplifyColorString(GetVehicleColors(character.CurrentVehicle).primary.ToString()) + "~w~~n~Plate: ~y~" + Function.Call<string>(Hash.GET_VEHICLE_NUMBER_PLATE_TEXT, character.CurrentVehicle));
                     Function.Call(Hash.END_TEXT_COMMAND_THEFEED_POST_MESSAGETEXT, "WEB_LOSSANTOSPOLICEDEPT", "WEB_LOSSANTOSPOLICEDEPT", true, 0, "VEHICLE IDENTIFIED", "~c~LSPD");
                 }
 
-                if (Options.DisplayHints && showPlayerMessages)
+                if (Config.Options.DisplayHints && showPlayerMessages)
                 {
                     Renderer.ShowHelpMessage("The ~b~LSPD~w~ has identified your vehicle as belonging to a previous suspect they were looking for.");
                     Renderer.ShowHelpMessage("Previous arrest warrant has been combined with the current one.");
@@ -444,11 +439,11 @@ namespace BetterChasesPlus
             }
             else
             {
-                if (Options.ArrestWarrants.ShowNotifications && showPlayerMessages)
+                if (Config.Options.ArrestWarrants.ShowNotifications && showPlayerMessages)
                 {
                     Function.Call(Hash.BEGIN_TEXT_COMMAND_THEFEED_POST, "STRING");
                     Function.Call(Hash.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME, "Model: ~y~" + character.CurrentVehicle.LocalizedName + "~w~~n~Color: ~y~" + SimplifyColorString(GetVehicleColors(character.CurrentVehicle).primary.ToString()) + "~w~~n~Plate: ~y~" + Function.Call<string>(Hash.GET_VEHICLE_NUMBER_PLATE_TEXT, character.CurrentVehicle));
-                    if (ActiveWarrant.vehicle.IsValid)
+                    if (ActiveWarrant.vehicleHash != 0)
                     {
                         Function.Call(Hash.END_TEXT_COMMAND_THEFEED_POST_MESSAGETEXT, "WEB_LOSSANTOSPOLICEDEPT", "WEB_LOSSANTOSPOLICEDEPT", true, 0, "NEW VEHICLE IDENTIFIED", "~c~LSPD");
 
@@ -459,16 +454,16 @@ namespace BetterChasesPlus
                     }
                 }
 
-                if (Options.DisplayHints && showPlayerMessages)
+                if (Config.Options.DisplayHints && showPlayerMessages)
                 {
                     Renderer.ShowHelpMessage("The ~b~LSPD~w~ has identified your vehicle. Cops will recognise it if you escape.");
                     Renderer.ShowHelpMessage("You can avoid this by acquiring a new vehicle while out of the cops' sight.");
                 }
 
-                ActiveWarrant.vehicle = character.CurrentVehicle.Model;
+                ActiveWarrant.vehicleHash = character.CurrentVehicle.Model.Hash;
             }
 
-            if (Options.ArrestWarrants.ShowBigMessages && showPlayerMessages)
+            if (Config.Options.ArrestWarrants.ShowBigMessages && showPlayerMessages)
             {
                 Renderer.ShowBigMessage("VEHICLE IDENTIFIED", "", Renderer.HudColor.GOLD, Renderer.HudColor.BLACK, 3000);
             }
@@ -490,56 +485,55 @@ namespace BetterChasesPlus
             {
                 foreach (Warrant warrant in Warrants)
                 {
-                    if (warrant.ped.IsValid && warrant.ped.Hash == character.Model.Hash)
+                    if (warrant.pedHash != 0 && warrant.pedHash == character.Model.Hash)
                     {
                         // Merge warrants
                         ActiveWarrant.WantedLevel = ActiveWarrant.WantedLevel > warrant.WantedLevel ? ActiveWarrant.WantedLevel : warrant.WantedLevel;
-                        ActiveWarrant.VehicleCrashes = ActiveWarrant.VehicleCrashes > warrant.VehicleCrashes ? ActiveWarrant.VehicleCrashes : warrant.VehicleCrashes;
-                        ActiveWarrant.DeadlyForce = ActiveWarrant.DeadlyForce ? ActiveWarrant.DeadlyForce : warrant.DeadlyForce;
-                        ActiveWarrant.PITAuthorized = ActiveWarrant.PITAuthorized ? ActiveWarrant.PITAuthorized : warrant.PITAuthorized;
-                        ActiveWarrant.vehicle = ActiveWarrant.vehicle.IsValid ? ActiveWarrant.vehicle : warrant.vehicle;
-                        ActiveWarrant.ped = warrant.ped;
+                        ActiveWarrant.Chase = BetterChases.MergeChases(ActiveWarrant.Chase, warrant.Chase);
+                        ActiveWarrant.vehicleHash = ActiveWarrant.vehicleHash != 0 ? ActiveWarrant.vehicleHash : warrant.vehicleHash;
+                        ActiveWarrant.pedHash = warrant.pedHash;
                         Warrants.Remove(warrant);
                         Helpers.WantedLevel = ActiveWarrant.WantedLevel;
+                        BetterChases.ActiveChase = ActiveWarrant.Chase;
                         break;
                     }
                 }
             }
 
-            if (ActiveWarrant.ped.IsValid)
+            if (ActiveWarrant.pedHash != 0)
             {
-                if (Options.ArrestWarrants.ShowNotifications && showPlayerMessages)
+                if (Config.Options.ArrestWarrants.ShowNotifications && showPlayerMessages)
                 {
                     Function.Call(Hash.BEGIN_TEXT_COMMAND_THEFEED_POST, "STRING");
-                    Function.Call(Hash.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME, "Fleeing suspect has been identified as a previous suspect ~y~" + ((PedHash)ActiveWarrant.ped.Hash).ToString() + "~w~.");
+                    Function.Call(Hash.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME, "Fleeing suspect has been identified as a previous suspect ~y~" + ((PedHash)ActiveWarrant.pedHash).ToString() + "~w~.");
                     Function.Call(Hash.END_TEXT_COMMAND_THEFEED_POST_MESSAGETEXT, "WEB_LOSSANTOSPOLICEDEPT", "WEB_LOSSANTOSPOLICEDEPT", true, 0, "SUSPECT IDENTIFIED", "~c~LSPD");
                 }
 
-                if (Options.DisplayHints && showPlayerMessages)
+                if (Config.Options.DisplayHints && showPlayerMessages)
                 {
-                    Renderer.ShowHelpMessage(((PedHash)ActiveWarrant.ped.Hash).ToString() + " has been identified by the ~b~LSPD~w~ as a previous suspect they were looking for.");
+                    Renderer.ShowHelpMessage(((PedHash)ActiveWarrant.pedHash).ToString() + " has been identified by the ~b~LSPD~w~ as a previous suspect they were looking for.");
                     Renderer.ShowHelpMessage("Previous arrest warrant has been combined with the current one.");
                 }
             }
             else
             {
-                ActiveWarrant.ped = character.Model;
+                ActiveWarrant.pedHash = character.Model.Hash;
 
-                if (Options.ArrestWarrants.ShowNotifications && showPlayerMessages)
+                if (Config.Options.ArrestWarrants.ShowNotifications && showPlayerMessages)
                 {
                     Function.Call(Hash.BEGIN_TEXT_COMMAND_THEFEED_POST, "STRING");
-                    Function.Call(Hash.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME, "Fleeing suspect has been identified as ~y~" + ((PedHash)ActiveWarrant.ped.Hash).ToString() + "~w~.");
+                    Function.Call(Hash.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME, "Fleeing suspect has been identified as ~y~" + ((PedHash)ActiveWarrant.pedHash).ToString() + "~w~.");
                     Function.Call(Hash.END_TEXT_COMMAND_THEFEED_POST_MESSAGETEXT, "WEB_LOSSANTOSPOLICEDEPT", "WEB_LOSSANTOSPOLICEDEPT", true, 0, "SUSPECT IDENTIFIED", "~c~LSPD");
                 }
 
-                if (Options.DisplayHints && showPlayerMessages)
+                if (Config.Options.DisplayHints && showPlayerMessages)
                 {
-                    Renderer.ShowHelpMessage(((PedHash)ActiveWarrant.ped.Hash).ToString() + " has been identified by the ~b~LSPD~w~. Cops will be able to recognise you if you escape.");
+                    Renderer.ShowHelpMessage(((PedHash)ActiveWarrant.pedHash).ToString() + " has been identified by the ~b~LSPD~w~. Cops will be able to recognise you if you escape.");
                     Renderer.ShowHelpMessage("Change clothes while out of sight to avoid being recognised after escaping.");
                 }
             }
 
-            if (Options.ArrestWarrants.ShowBigMessages && showPlayerMessages)
+            if (Config.Options.ArrestWarrants.ShowBigMessages && showPlayerMessages)
             {
                 Renderer.ShowBigMessage("IDENTIFIED", "", Renderer.HudColor.GOLD, Renderer.HudColor.BLACK, 3000);
             }
@@ -576,48 +570,50 @@ namespace BetterChasesPlus
             ActiveWarrant = new Warrant();
             Warrants.Remove(warrant);
 
-            if (Options.ArrestWarrants.ShowNotifications)
+            if (Config.Options.ArrestWarrants.ShowNotifications)
             {
                 Function.Call(Hash.BEGIN_TEXT_COMMAND_THEFEED_POST, "STRING");
 
-                if (warrant.ped.IsValid)
+                if (warrant.pedHash != 0)
                 {
-                    if (warrant.vehicle.IsValid)
+                    if (warrant.vehicleHash != 0)
                     {
-                        Function.Call(Hash.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME, "The Arrest Warrant on ~y~" + ((PedHash)warrant.ped.Hash).ToString() + "~w~ and on the ~y~" + Function.Call<string>(Hash.GET_DISPLAY_NAME_FROM_VEHICLE_MODEL, warrant.vehicle.Hash) + "~w~ has been lifted.");
+                        Function.Call(Hash.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME, "The Arrest Warrant on ~y~" + ((PedHash)warrant.pedHash).ToString() + "~w~ and on the ~y~" + Function.Call<string>(Hash.GET_DISPLAY_NAME_FROM_VEHICLE_MODEL, Helpers.GetModel(warrant.vehicleHash)) + "~w~ has been lifted.");
                     }
                     else
                     {
-                        Function.Call(Hash.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME, "The Arrest Warrant on ~y~" + ((PedHash)warrant.ped.Hash).ToString() + "~w~ has been lifted.");
+                        Function.Call(Hash.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME, "The Arrest Warrant on ~y~" + ((PedHash)warrant.pedHash).ToString() + "~w~ has been lifted.");
                     }
                 }
-                else if (warrant.vehicle.IsValid)
+                else if (warrant.vehicleHash != 0)
                 {
-                    Function.Call(Hash.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME, "The Arrest Warrant on the ~y~" + Function.Call<string>(Hash.GET_DISPLAY_NAME_FROM_VEHICLE_MODEL, warrant.vehicle.Hash) + "~w~ has been lifted.");
+                    Function.Call(Hash.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME, "The Arrest Warrant on the ~y~" + Function.Call<string>(Hash.GET_DISPLAY_NAME_FROM_VEHICLE_MODEL, Helpers.GetModel(warrant.vehicleHash)) + "~w~ has been lifted.");
                 }
 
                 Function.Call(Hash.END_TEXT_COMMAND_THEFEED_POST_MESSAGETEXT, "web_lossantospolicedept", "web_lossantospolicedept", true, 0, "ARREST WARRANT LIFTED", "~c~LSPD");
 
 
-                if (Options.DisplayHints)
+                if (Config.Options.DisplayHints)
                 {
-                    if (warrant.ped.IsValid)
+                    if (warrant.pedHash != 0)
                     {
-                        Renderer.ShowHelpMessage(((PedHash)warrant.ped.Hash).ToString() + "'s Arrest Warrant has expired. You are now free to roam around without worries.");
+                        Renderer.ShowHelpMessage(((PedHash)warrant.pedHash).ToString() + "'s Arrest Warrant has expired. You are now free to roam around without worries.");
                         Renderer.ShowHelpMessage("~g~The police have forgotten about you~w~.");
                     }
                     else
                     {
-                        Renderer.ShowHelpMessage("The " + Function.Call<string>(Hash.GET_DISPLAY_NAME_FROM_VEHICLE_MODEL, warrant.vehicle.Hash) + "'s Arrest Warrant has expired. You are now free to roam around without worries.");
+                        Renderer.ShowHelpMessage("The " + Function.Call<string>(Hash.GET_DISPLAY_NAME_FROM_VEHICLE_MODEL, Helpers.GetModel(warrant.vehicleHash)) + "'s Arrest Warrant has expired. You are now free to roam around without worries.");
                         Renderer.ShowHelpMessage("~g~The police have forgotten about your vehicle~w~.");
                     }
                 }
             }
 
-            if (Options.ArrestWarrants.ShowBigMessages)
+            if (Config.Options.ArrestWarrants.ShowBigMessages)
             {
                 Renderer.ShowBigMessage("WARRANT LIFTED", "", Renderer.HudColor.BLUE, Renderer.HudColor.BLACK, 3000);
             }
+
+            SaveWarrants();
         }
 
         public static void ClearWarrants()
@@ -632,7 +628,7 @@ namespace BetterChasesPlus
             Warrant warrant = new Warrant();
 
             warrant.WantedLevel = 1;
-            warrant.ped = character.Model;
+            warrant.pedHash = character.Model.Hash;
 
             // Ped Description
             ActiveWarrant.PedDescription.beardStyle = Function.Call<int>(Hash.GET_PED_DRAWABLE_VARIATION, character, 1);
@@ -663,45 +659,45 @@ namespace BetterChasesPlus
 
         public static Warrant IssueWarrant(Warrant warrant)
         {
-            if (warrant.WantedLevel <= 0 || (!warrant.ped.IsValid && !warrant.vehicle.IsValid)) return warrant;
+            if (warrant.WantedLevel <= 0 || (warrant.pedHash == 0 && warrant.vehicleHash == 0)) return warrant;
 
             warrant.WarrantIssueTime = World.CurrentDate;
             warrant.WarrantCheckTime = Game.GameTime;
 
-            if (Options.ArrestWarrants.ShowNotifications)
+            if (Config.Options.ArrestWarrants.ShowNotifications)
             {
                 Function.Call(Hash.BEGIN_TEXT_COMMAND_THEFEED_POST, "STRING");
 
-                if (warrant.ped.IsValid)
+                if (warrant.pedHash != 0)
                 {
-                    if (warrant.vehicle.IsValid)
+                    if (warrant.vehicleHash != 0)
                     {
-                        Function.Call(Hash.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME, "Name: ~y~" + ((PedHash)warrant.ped.Hash).ToString() + "~w~~n~Model: ~y~" + Function.Call<string>(Hash.GET_DISPLAY_NAME_FROM_VEHICLE_MODEL, warrant.vehicle.Hash) + "~w~~n~Expiration: ~y~" + WarrantExpireFormatted(warrant) + "~w~");
+                        Function.Call(Hash.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME, "Name: ~y~" + ((PedHash)warrant.pedHash).ToString() + "~w~~n~Model: ~y~" + Function.Call<string>(Hash.GET_DISPLAY_NAME_FROM_VEHICLE_MODEL, Helpers.GetModel(warrant.vehicleHash)) + "~w~~n~Expiration: ~y~" + WarrantExpireFormatted(warrant) + "~w~");
                     }
                     else
                     {
-                        Function.Call(Hash.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME, "Name: ~y~" + ((PedHash)warrant.ped.Hash).ToString() + "~w~~n~Last Seen: ~y~" + World.GetStreetName(warrant.LastKnownLocation) + "~w~~n~Expiration: ~y~" + WarrantExpireFormatted(warrant) + "~w~");
+                        Function.Call(Hash.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME, "Name: ~y~" + ((PedHash)warrant.pedHash).ToString() + "~w~~n~Last Seen: ~y~" + World.GetStreetName(warrant.LastKnownLocation) + "~w~~n~Expiration: ~y~" + WarrantExpireFormatted(warrant) + "~w~");
                     }
                 }
-                else if (warrant.vehicle.IsValid)
+                else if (warrant.vehicleHash != 0)
                 {
-                    Function.Call(Hash.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME, "Model: ~y~" + Function.Call<string>(Hash.GET_DISPLAY_NAME_FROM_VEHICLE_MODEL, warrant.vehicle.Hash) + "~w~~n~Last Seen: ~y~" + World.GetStreetName(warrant.LastKnownLocation) + "~w~~n~Expiration: ~y~" + WarrantExpireFormatted(warrant) + "~w~");
+                    Function.Call(Hash.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME, "Model: ~y~" + Function.Call<string>(Hash.GET_DISPLAY_NAME_FROM_VEHICLE_MODEL, Helpers.GetModel(warrant.vehicleHash)) + "~w~~n~Last Seen: ~y~" + World.GetStreetName(warrant.LastKnownLocation) + "~w~~n~Expiration: ~y~" + WarrantExpireFormatted(warrant) + "~w~");
                 }
 
                 Function.Call(Hash.END_TEXT_COMMAND_THEFEED_POST_MESSAGETEXT, "web_lossantospolicedept", "web_lossantospolicedept", true, 0, "ARREST WARRANT ISSUED", "~c~LSPD");
             }
 
-            if (Options.DisplayHints)
+            if (Config.Options.DisplayHints)
             {
                 Renderer.ShowHelpMessage("You have escaped, but you're not safe yet.");
-                if (warrant.ped.IsValid)
+                if (warrant.pedHash != 0)
                 {
-                    Renderer.ShowHelpMessage("The Arrest Warrant has ~y~" + ((PedHash)warrant.ped.Hash).ToString() + "~w~'s appareance description.");
+                    Renderer.ShowHelpMessage("The Arrest Warrant has ~y~" + ((PedHash)warrant.pedHash).ToString() + "~w~'s appareance description.");
                     Renderer.ShowHelpMessage("You can change clothes to prevent the cops from being able to recognise you.");
-                    if (warrant.vehicle.IsValid)
+                    if (warrant.vehicleHash != 0)
                     {
                         Renderer.ShowHelpMessage("The Arrest Warrant has your vehicle's description too.");
-                        if (Helpers.IsValid(Game.Player.Character.CurrentVehicle) && Game.Player.Character.CurrentVehicle.Model.Hash == warrant.vehicle.Hash)
+                        if (Helpers.IsValid(Game.Player.Character.CurrentVehicle) && Game.Player.Character.CurrentVehicle.Model.Hash == warrant.vehicleHash)
                         {
                             Renderer.ShowHelpMessage("It is best that you get rid of the vehicle, or modify it.");
                         }
@@ -710,12 +706,12 @@ namespace BetterChasesPlus
                             Renderer.ShowHelpMessage("However, you are in a different vehicle, so you don't have to worry about the vehicle warrant.");
                         }
                     }
-                    Renderer.ShowHelpMessage("You can also switch to another Character and wait for ~y~" + ((PedHash)warrant.ped.Hash).ToString() + "~w~'s Arrest Warrant to expire.");
+                    Renderer.ShowHelpMessage("You can also switch to another Character and wait for ~y~" + ((PedHash)warrant.pedHash).ToString() + "~w~'s Arrest Warrant to expire.");
                 }
-                else if (warrant.vehicle.IsValid)
+                else if (warrant.vehicleHash != 0)
                 {
                     Renderer.ShowHelpMessage("~y~" + ((PedHash)Game.Player.Character.Model.Hash).ToString() + "~w~ hasn't been identfied, but ~y~" + ((PedHash)Game.Player.Character.Model.Hash).ToString() + "~w~'s vehicle has.");
-                    if (Helpers.IsValid(Game.Player.Character.CurrentVehicle) && Game.Player.Character.CurrentVehicle.Model.Hash == warrant.vehicle.Hash)
+                    if (Helpers.IsValid(Game.Player.Character.CurrentVehicle) && Game.Player.Character.CurrentVehicle.Model.Hash == warrant.vehicleHash)
                     {
                         Renderer.ShowHelpMessage("It is best that you get rid of the vehicle, or modify it.");
                     }
@@ -728,35 +724,38 @@ namespace BetterChasesPlus
                 Renderer.ShowHelpMessage("The closer the Arrest Warrant is to expire, the less likely cops will recognise you.");
             }
 
-            if (Options.ArrestWarrants.ShowBigMessages)
+            if (Config.Options.ArrestWarrants.ShowBigMessages)
             {
                 Renderer.ShowBigMessage("ESCAPED", "", Renderer.HudColor.BLUE, Renderer.HudColor.BLACK, 3000);
             }
 
             Warrants.Add(warrant);
             ActiveWarrant = new Warrant();
+            SaveWarrants();
+
             return warrant;
         }
 
         private void CheckWarrant(Warrant warrant)
         {
             warrant.WarrantCheckTime = Game.GameTime;
+            GTA.UI.Notification.Show("Debug " + warrant.Chase.Duration);
 
             Function.Call(Hash.BEGIN_TEXT_COMMAND_THEFEED_POST, "STRING");
-            if (warrant.ped.IsValid)
+            if (warrant.pedHash != 0)
             {
-                if (warrant.vehicle.IsValid)
+                if (warrant.vehicleHash != 0)
                 {
-                    Function.Call(Hash.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME, "The Arrest Warrant for ~y~" + ((PedHash)warrant.ped.Hash).ToString() + "~w~ and the ~y~" + Function.Call<string>(Hash.GET_DISPLAY_NAME_FROM_VEHICLE_MODEL, warrant.vehicle.Hash) + "~w~ will expire in ~y~" + WarrantExpireFormatted(warrant));
+                    Function.Call(Hash.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME, "The Arrest Warrant for ~y~" + ((PedHash)warrant.pedHash).ToString() + "~w~ and the ~y~" + Function.Call<string>(Hash.GET_DISPLAY_NAME_FROM_VEHICLE_MODEL, Helpers.GetModel(warrant.vehicleHash)) + "~w~ will expire in ~y~" + WarrantExpireFormatted(warrant));
                 }
                 else
                 {
-                    Function.Call(Hash.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME, "The Arrest Warrant for ~y~" + ((PedHash)warrant.ped.Hash).ToString() + "~w~ will expire in ~y~" + WarrantExpireFormatted(warrant));
+                    Function.Call(Hash.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME, "The Arrest Warrant for ~y~" + ((PedHash)warrant.pedHash).ToString() + "~w~ will expire in ~y~" + WarrantExpireFormatted(warrant));
                 }
             }
-            else if (warrant.vehicle.IsValid)
+            else if (warrant.vehicleHash != 0)
             {
-                Function.Call(Hash.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME, "The Arrest Warrant for the ~y~" + Function.Call<string>(Hash.GET_DISPLAY_NAME_FROM_VEHICLE_MODEL, warrant.vehicle.Hash) + "~w~ will expire in ~y~" + WarrantExpireFormatted(warrant));
+                Function.Call(Hash.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME, "The Arrest Warrant for the ~y~" + Function.Call<string>(Hash.GET_DISPLAY_NAME_FROM_VEHICLE_MODEL, Helpers.GetModel(warrant.vehicleHash)) + "~w~ will expire in ~y~" + WarrantExpireFormatted(warrant));
             }
             Function.Call(Hash.END_TEXT_COMMAND_THEFEED_POST_MESSAGETEXT, "web_lossantospolicedept", "web_lossantospolicedept", true, 0, "WARRANT EXPIRATION", "~c~LSPD");
         }
@@ -766,7 +765,7 @@ namespace BetterChasesPlus
             ActiveWarrant = warrant;
 
             // Set Wanted Level to Warrant Wanted Level
-            if (Options.ArrestWarrants.RememberStarsWhenRecognised && warrant.WantedLevel > Game.Player.WantedLevel)
+            if (Config.Options.ArrestWarrants.RememberChase && warrant.WantedLevel > Game.Player.WantedLevel)
             {
                 Helpers.WantedLevel = warrant.WantedLevel;
             }
@@ -775,51 +774,43 @@ namespace BetterChasesPlus
                 Helpers.WantedLevel = 2;
             }
 
-            // Restore Better Chases
-            BetterChases.DeadlyForce = warrant.DeadlyForce;
-            BetterChases.PITAuthorized = warrant.PITAuthorized;
-            BetterChases.VehicleCrashes = warrant.VehicleCrashes;
-            BetterChases.RecklessDriving = warrant.RecklessDriving;
-            BetterChases.ExcessiveSpeeding = warrant.ExcessiveSpeeding;
-            BetterChases.HitandRun = warrant.HitandRun;
-            BetterChases.KilledPeds = warrant.KilledPeds;
-            BetterChases.KilledCops = warrant.KilledCops;
-            BetterChases.ChaseStartTime = warrant.ChaseStartTime;
+            // Restore Better Chases Chase - first merging current active chase
+            BetterChases.ActiveChase = BetterChases.MergeChases(BetterChases.ActiveChase, warrant.Chase);
 
             if (WasPedSpotted)
             {
-                if (Options.ArrestWarrants.ShowNotifications)
+                if (Config.Options.ArrestWarrants.ShowNotifications)
                 {
                     Function.Call(Hash.BEGIN_TEXT_COMMAND_THEFEED_POST, "STRING");
-                    Function.Call(Hash.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME, "~y~" + ((PedHash)warrant.ped.Hash).ToString() + "~w~ has been spotted on ~y~" + World.GetStreetName(Game.Player.Character.Position) + "~w.~");
+                    Function.Call(Hash.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME, "~y~" + ((PedHash)warrant.pedHash).ToString() + "~w~ has been spotted on ~y~" + World.GetStreetName(Game.Player.Character.Position) + "~w.~");
                     Function.Call(Hash.END_TEXT_COMMAND_THEFEED_POST_MESSAGETEXT, "WEB_LOSSANTOSPOLICEDEPT", "WEB_LOSSANTOSPOLICEDEPT", true, 0, "WANTED PERSON SPOTTED", "~c~LSPD");
                 }
 
-                if (Options.DisplayHints)
+                if (Config.Options.DisplayHints)
                 {
                     Renderer.ShowHelpMessage("You have been ~r~recognised~w~ by a cop. The chase will resume.");
                 }
 
-                if (Options.ArrestWarrants.ShowBigMessages)
+                if (Config.Options.ArrestWarrants.ShowBigMessages)
                 {
                     Renderer.ShowBigMessage("SPOTTED", "", Renderer.HudColor.RED, Renderer.HudColor.BLACK, 3000);
                 }
             }
             else
             {
-                if (Options.ArrestWarrants.ShowNotifications)
+                if (Config.Options.ArrestWarrants.ShowNotifications)
                 {
                     Function.Call(Hash.BEGIN_TEXT_COMMAND_THEFEED_POST, "STRING");
                     Function.Call(Hash.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME, "A wanted vehicle has been spotted.");
                     Function.Call(Hash.END_TEXT_COMMAND_THEFEED_POST_MESSAGETEXT, "WEB_LOSSANTOSPOLICEDEPT", "WEB_LOSSANTOSPOLICEDEPT", true, 0, "WANTED VEHICLE SPOTTED", "~c~LSPD");
                 }
 
-                if (Options.DisplayHints)
+                if (Config.Options.DisplayHints)
                 {
                     Renderer.ShowHelpMessage("Your vehicle has been ~r~recognised~w~ by a cop. The chase will resume and the Arrest Warrant has been updated.");
                 }
 
-                if (Options.ArrestWarrants.ShowBigMessages)
+                if (Config.Options.ArrestWarrants.ShowBigMessages)
                 {
                     Renderer.ShowBigMessage("VEHICLE SPOTTED", "", Renderer.HudColor.RED, Renderer.HudColor.BLACK, 3000);
                 }
@@ -834,27 +825,27 @@ namespace BetterChasesPlus
             {
                 case 1:
                     {
-                        length = Options.ArrestWarrants.OneStarWarrantTime;
+                        length = Config.Options.ArrestWarrants.WarrantLenghts.OneStar;
                         break;
                     }
                 case 2:
                     {
-                        length = Options.ArrestWarrants.OneStarWarrantTime + Options.ArrestWarrants.TwoStarWarrantTime;
+                        length = Config.Options.ArrestWarrants.WarrantLenghts.OneStar + Config.Options.ArrestWarrants.WarrantLenghts.TwoStar;
                         break;
                     }
                 case 3:
                     {
-                        length = Options.ArrestWarrants.OneStarWarrantTime + Options.ArrestWarrants.TwoStarWarrantTime + Options.ArrestWarrants.ThreeStarWarrantTime;
+                        length = Config.Options.ArrestWarrants.WarrantLenghts.OneStar + Config.Options.ArrestWarrants.WarrantLenghts.TwoStar + Config.Options.ArrestWarrants.WarrantLenghts.ThreeStar;
                         break;
                     }
                 case 4:
                     {
-                        length = Options.ArrestWarrants.OneStarWarrantTime + Options.ArrestWarrants.TwoStarWarrantTime + Options.ArrestWarrants.ThreeStarWarrantTime + Options.ArrestWarrants.FourStarWarrantTime;
+                        length = Config.Options.ArrestWarrants.WarrantLenghts.OneStar + Config.Options.ArrestWarrants.WarrantLenghts.TwoStar + Config.Options.ArrestWarrants.WarrantLenghts.ThreeStar + Config.Options.ArrestWarrants.WarrantLenghts.FourStar;
                         break;
                     }
                 case 5:
                     {
-                        length = Options.ArrestWarrants.OneStarWarrantTime + Options.ArrestWarrants.TwoStarWarrantTime + Options.ArrestWarrants.ThreeStarWarrantTime + Options.ArrestWarrants.FourStarWarrantTime + Options.ArrestWarrants.FiveStarWarrantTime;
+                        length = Config.Options.ArrestWarrants.WarrantLenghts.OneStar + Config.Options.ArrestWarrants.WarrantLenghts.TwoStar + Config.Options.ArrestWarrants.WarrantLenghts.ThreeStar + Config.Options.ArrestWarrants.WarrantLenghts.FourStar + Config.Options.ArrestWarrants.WarrantLenghts.FiveStar;
                         break;
                     }
             }
@@ -909,7 +900,7 @@ namespace BetterChasesPlus
         private void CompareWarrantDescription(Warrant vehicleWarrant, Warrant pedWarrant)
         {
             Vehicle vehicle = Game.Player.Character.CurrentVehicle;
-            if (vehicleWarrant.vehicle.IsValid && Helpers.IsValid(vehicle) && vehicle.Model.Hash == vehicleWarrant.vehicle.Hash)
+            if (vehicleWarrant.vehicleHash != 0 && Helpers.IsValid(vehicle) && vehicle.Model.Hash == vehicleWarrant.vehicleHash)
             {
                 float match = 0f;
                 //if (vehicle.PrimaryColor == vehicleWarrant.VehicleDescription.primaryColor)
@@ -942,7 +933,7 @@ namespace BetterChasesPlus
                 VehicleMatch = 0;
             }
 
-            if (pedWarrant.ped.IsValid)
+            if (pedWarrant.pedHash != 0)
             {
                 float match = 0f;
                 Ped character = Game.Player.Character;
@@ -1101,6 +1092,39 @@ namespace BetterChasesPlus
             colors.secondary = color2.GetResult<GTA.VehicleColor>();
 
             return colors;
+        }
+
+        public static void SaveWarrants()
+        {
+            XmlAttributes myXmlAttributes = new XmlAttributes();
+            XmlRootAttribute myXmlRootAttribute = new XmlRootAttribute("Warrants");
+            myXmlAttributes.XmlRoot = myXmlRootAttribute;
+            XmlAttributeOverrides myXmlAttributeOverrides = new XmlAttributeOverrides();
+            myXmlAttributeOverrides.Add(typeof(List<Warrant>), myXmlAttributes);
+
+            XmlSerializer serializer = new XmlSerializer(typeof(List<Warrant>), myXmlAttributeOverrides);
+            TextWriter writer = new StreamWriter(@"scripts\\BetterChasesWarrants.xml");
+            serializer.Serialize(writer, Warrants);
+            writer.Close();
+        }
+
+        public static void LoadWarrants()
+        {
+            XmlAttributes myXmlAttributes = new XmlAttributes();
+            XmlRootAttribute myXmlRootAttribute = new XmlRootAttribute("Warrants");
+            myXmlAttributes.XmlRoot = myXmlRootAttribute;
+            XmlAttributeOverrides myXmlAttributeOverrides = new XmlAttributeOverrides();
+            myXmlAttributeOverrides.Add(typeof(List<Warrant>), myXmlAttributes);
+
+            XmlSerializer serializer = new XmlSerializer(typeof(List<Warrant>), myXmlAttributeOverrides);
+
+            try
+            {
+                TextReader reader = new StreamReader(@"scripts\\BetterChasesWarrants.xml");
+                Warrants = (List<Warrant>)serializer.Deserialize(reader);
+                reader.Close();
+            }
+            catch (Exception) { };
         }
     }
 }
