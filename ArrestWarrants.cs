@@ -739,7 +739,6 @@ namespace BetterChasesPlus
         private void CheckWarrant(Warrant warrant)
         {
             warrant.WarrantCheckTime = Game.GameTime;
-            GTA.UI.Notification.Show("Debug " + warrant.Chase.Duration);
 
             Function.Call(Hash.BEGIN_TEXT_COMMAND_THEFEED_POST, "STRING");
             if (warrant.pedHash != 0)

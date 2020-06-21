@@ -107,6 +107,8 @@ namespace BetterChasesPlus
         public class GlobalConfig
         {
             public Keys MenuKey { get; set; } = Keys.F7;
+            public Keys SurrenderKey { get; set; } = Keys.E;
+            public GTA.Control SurrenderButton { get; set; } = GTA.Control.Cover;
             public bool DisplayHints { get; set; } = true;
 
             public BetterChasesConfig BetterChases = new BetterChasesConfig();
@@ -1547,7 +1549,7 @@ namespace BetterChasesPlus
                         {
                             parent = Config.Options.BetterChases,
                             name = "AllowBustOpportunity",
-                            menuItem = new NativeUI.UIMenuCheckboxItem("Allow Extra Bust Opportunity", Config.Options.BetterChases.AllowBustOpportunity, "If enabled, you can optionally give up when above 1 star by pressing ~y~E~w~ or ~y~Cover~w~.")
+                            menuItem = new NativeUI.UIMenuCheckboxItem("Allow Extra Bust Opportunity", Config.Options.BetterChases.AllowBustOpportunity, "If enabled, you can optionally give up when above 1 star by pressing ~y~" + Config.Options.SurrenderKey.ToString() + "~w~ or ~y~" + Config.Options.SurrenderButton.ToString() + "~w~.")
                         },
                         new Menu()
                         {

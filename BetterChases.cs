@@ -134,6 +134,7 @@ namespace BetterChasesPlus
                 // Changed from not Wanted to Wanted
                 else if (IsWanted && !WasWanted)
                 {
+                    // GTA.Native.Function.Call(GTA.Native.Hash.SET_CLOCK_DATE, 15, 6, 2009);
                     ChaseTime = World.CurrentDate;
 
                     // In case we are resuming a previous chase
@@ -422,7 +423,7 @@ namespace BetterChasesPlus
                 if (Config.Options.BetterChases.AllowBustOpportunity && IsWanted && character.IsOnFoot && !character.IsSwimming && !character.IsFalling && Game.Player.WantedLevel < 5)
                 {
                     // Hands up
-                    if (IsGettingBusted && !character.IsBeingStunned && !character.IsRagdoll && !character.IsProne && (Game.IsKeyPressed(Keys.E) || Game.IsControlPressed(GTA.Control.Cover)))
+                    if (IsGettingBusted && !character.IsBeingStunned && !character.IsRagdoll && !character.IsProne && (Game.IsKeyPressed(Config.Options.SurrenderKey) || Game.IsControlPressed(Config.Options.SurrenderButton)))
                     {
                         if (!AreHandsUp)
                         {
@@ -445,7 +446,7 @@ namespace BetterChasesPlus
                     }
 
                     // Bust Oportunity
-                    if (!IsGettingBusted && (character.IsBeingStunned || character.IsRagdoll || character.IsProne || Game.IsKeyPressed(Keys.E) || Game.IsControlPressed(GTA.Control.Cover)) && character.Velocity.Length() <= 4f && !character.IsJumping && !character.IsRunning && !character.IsInCover && !Game.Player.IsAiming && Helpers.IsCopNearby(character.Position, 20f))
+                    if (!IsGettingBusted && (character.IsBeingStunned || character.IsRagdoll || character.IsProne || Game.IsKeyPressed(Config.Options.SurrenderKey) || Game.IsControlPressed(Config.Options.SurrenderButton)) && character.Velocity.Length() <= 4f && !character.IsJumping && !character.IsRunning && !character.IsInCover && !Game.Player.IsAiming && Helpers.IsCopNearby(character.Position, 20f))
                     {
                         IsGettingBusted = true;
                         BustStars = Game.Player.WantedLevel;
@@ -826,7 +827,7 @@ namespace BetterChasesPlus
                 }
 
                 // Reckless Driving -- Driving against traffic OR Driving on sidewalks
-                if (Config.Options.BetterChases.Crimes.Reckless.Enabled && IsWanted && !ActiveChase.Crimes.Reckless && Helpers.IsValid(character.CurrentVehicle) && character.CurrentVehicle.Speed > Config.Options.BetterChases.Crimes.Reckless.Speed && ((Function.Call<int>(Hash.GET_TIME_SINCE_PLAYER_DROVE_AGAINST_TRAFFIC, Game.Player) > -1 && Function.Call<int>(Hash.GET_TIME_SINCE_PLAYER_DROVE_AGAINST_TRAFFIC, Game.Player) < 1000) || (Function.Call<int>(Hash.GET_TIME_SINCE_PLAYER_DROVE_ON_PAVEMENT, Game.Player) > -1 && Function.Call<int>(Hash.GET_TIME_SINCE_PLAYER_DROVE_ON_PAVEMENT, Game.Player) < 1000)))
+                if (Config.Options.BetterChases.Crimes.Reckless.Enabled && IsWanted && !ActiveChase.Crimes.Reckless && Helpers.IsValid(character.CurrentVehicle) && !character.CurrentVehicle.Model.IsBicycle && character.CurrentVehicle.Speed > Config.Options.BetterChases.Crimes.Reckless.Speed && ((Function.Call<int>(Hash.GET_TIME_SINCE_PLAYER_DROVE_AGAINST_TRAFFIC, Game.Player) > -1 && Function.Call<int>(Hash.GET_TIME_SINCE_PLAYER_DROVE_AGAINST_TRAFFIC, Game.Player) < 1000) || (Function.Call<int>(Hash.GET_TIME_SINCE_PLAYER_DROVE_ON_PAVEMENT, Game.Player) > -1 && Function.Call<int>(Hash.GET_TIME_SINCE_PLAYER_DROVE_ON_PAVEMENT, Game.Player) < 1000)))
                 {
                     if (Config.Options.BetterChases.Crimes.Stolen.MaxWantedLevel == 0 || wantedLevel <= Config.Options.BetterChases.Crimes.Stolen.MaxWantedLevel)
                     {
