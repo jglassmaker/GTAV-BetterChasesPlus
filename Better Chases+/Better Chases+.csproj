@@ -49,7 +49,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="BetterChases.cs" />
-    <Compile Include="AssemblyInfo.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="ArrestWarrants.cs" />
     <Compile Include="Helpers.cs" />
     <Compile Include="Renderer.cs" />
