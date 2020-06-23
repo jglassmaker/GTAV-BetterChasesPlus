@@ -179,7 +179,7 @@ namespace BetterChasesPlus
                 {
                     if (ped.IsHuman)
                     {
-                        if (Helpers.PedCopHashes.Contains((PedHash)ped.Model.Hash))
+                        if (Helpers.PedCopTypes.Contains(Function.Call<int>(Hash.GET_PED_TYPE, ped))) // Helpers.PedCopHashes.Contains((PedHash)ped.Model.Hash
                         {
                             Cops.Add(ped);
                             

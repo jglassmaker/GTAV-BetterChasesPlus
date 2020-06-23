@@ -146,21 +146,21 @@ namespace BetterChasesPlus
             }
         }
 
-        public static int[] PedCopTypes = { 6, 27, 29 }; // 6 Cop, 27 SWAT, 29 Army
+        public static int[] PedCopTypes = { 6, 27 }; // 6 Cop, 27 SWAT, 29 Army
 
-        public static List<PedHash> PedCopHashes = new List<PedHash>()
-        {
-            PedHash.Cop01SFY,
-            PedHash.Cop01SMY,
-            PedHash.Hwaycop01SMY,
-            PedHash.Sheriff01SFY,
-            PedHash.Sheriff01SMY,
-            PedHash.Snowcop01SMM,
-            PedHash.Swat01SMY,
-            PedHash.CiaSec01SMM,
-            PedHash.FibSec01,
-            PedHash.FibSec01SMM
-        };
+        //public static List<PedHash> PedCopHashes = new List<PedHash>()
+        //{
+        //    PedHash.Cop01SFY,
+        //    PedHash.Cop01SMY,
+        //    PedHash.Hwaycop01SMY,
+        //    PedHash.Sheriff01SFY,
+        //    PedHash.Sheriff01SMY,
+        //    PedHash.Snowcop01SMM,
+        //    PedHash.Swat01SMY,
+        //    PedHash.CiaSec01SMM,
+        //    PedHash.FibSec01,
+        //    PedHash.FibSec01SMM
+        //};
 
         public static WeaponHash[] NotWeapons =
         {

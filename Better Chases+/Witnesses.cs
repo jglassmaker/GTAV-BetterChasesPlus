@@ -192,7 +192,7 @@ namespace BetterChasesPlus
                         continue;
                     }
 
-                    bool IsCop = Helpers.PedCopHashes.Contains((PedHash)ped.Model.Hash);
+                    bool IsCop = Helpers.PedCopTypes.Contains(Function.Call<int>(Hash.GET_PED_TYPE, ped));
 
                     if ((!IsCop && Citizens.Count >= MaxCitizenWitnesses) || (IsCop && Cops.Count >= MaxCopWitnesses))
                     {
