@@ -6,6 +6,7 @@ using System.Linq;
 using System.Collections.Generic;
 using System.Windows.Forms;
 using System.Xml.Serialization;
+using System.Threading.Tasks;
 
 namespace BetterChasesPlus
 {
@@ -20,6 +21,7 @@ namespace BetterChasesPlus
         public static List<Vehicle> CopVehicles = new List<Vehicle>();
 
         private static bool IsShooting = false;
+        private static bool StopShooting = false;
 
         public class Chase
         {
@@ -106,6 +108,9 @@ namespace BetterChasesPlus
             private static List<Ped> PedsKilled = new List<Ped>();
             private static List<Ped> CopsKilled = new List<Ped>();
             private static List<Ped> ModifiedCops = new List<Ped>();
+
+            private static List<Ped> CopsMovingToCar = new List<Ped>();
+            private static List<Ped> CopsAimingAtCar = new List<Ped>();
 
             public BetterChasesPassive()
             {
@@ -223,7 +228,7 @@ namespace BetterChasesPlus
                         {
                             if (cop.Weapons.Current.Hash != WeaponHash.StunGun && cop.IsInCombatAgainst(character))
                             {
-                                cop.Weapons.Give(WeaponHash.StunGun, 1000, true, true);
+                                cop.Weapons.Give(WeaponHash.StunGun, 10, true, true);
                                 cop.CanSwitchWeapons = false;
                                 ModifiedCops.Add(cop);
                             }
@@ -246,7 +251,6 @@ namespace BetterChasesPlus
                         }
                     }
                 }
-
 
                 // Gather all cops & cop vehicles
                 //Ped[] peds = World.GetAllPeds();
@@ -374,6 +378,8 @@ namespace BetterChasesPlus
                         //Function.Call(Hash.SET_DISPATCH_COPS_FOR_PLAYER, Game.Player, true);
                         //GTA.UI.Notification.Show("Debug " + ChaseGroundVehicles.Count);
                         //GTA.UI.Notification.Show("Car Units: " + (Helpers.MinGroundUnits + AdditionalGroundUnits));
+                        //Function.Call(Hash.SET_DISPATCH_IDEAL_SPAWN_DISTANCE, 60f);
+                        //Function.Call(Hash.SET_DISPATCH_SPAWN_LOCATION, character.Position.X, character.Position.Y, character.Position.Z);
 
                         Function.Call(Hash.ENABLE_DISPATCH_SERVICE, 1, true);
                         Function.Call(Hash.ENABLE_DISPATCH_SERVICE, 4, true);
@@ -381,6 +387,8 @@ namespace BetterChasesPlus
                     }
                     else
                     {
+                        //Function.Call(Hash.RESET_DISPATCH_IDEAL_SPAWN_DISTANCE);
+
                         Function.Call(Hash.ENABLE_DISPATCH_SERVICE, 1, false);
                         Function.Call(Hash.ENABLE_DISPATCH_SERVICE, 4, false);
                         Function.Call(Hash.ENABLE_DISPATCH_SERVICE, 6, false);
@@ -396,11 +404,16 @@ namespace BetterChasesPlus
                     if (airVehicles.Count < Helpers.MinAirUnits + AdditionalAirUnits)
                     {
                         //GTA.UI.Notification.Show("Air Units: " + (Helpers.MinAirUnits + AdditionalAirUnits));
+                        //Function.Call(Hash.SET_DISPATCH_IDEAL_SPAWN_DISTANCE, 120f);
+                        //Function.Call(Hash.SET_DISPATCH_SPAWN_LOCATION, character.Position.X, character.Position.Y, character.Position.Z);
+
                         Function.Call(Hash.ENABLE_DISPATCH_SERVICE, 2, true);
                         Function.Call(Hash.ENABLE_DISPATCH_SERVICE, 12, true);
                     }
                     else
                     {
+                        //Function.Call(Hash.RESET_DISPATCH_IDEAL_SPAWN_DISTANCE);
+
                         Function.Call(Hash.ENABLE_DISPATCH_SERVICE, 2, false);
                         Function.Call(Hash.ENABLE_DISPATCH_SERVICE, 12, false);
                     }
@@ -419,45 +432,167 @@ namespace BetterChasesPlus
                     }
                 }
 
-                // Allow extra bust opportunities
-                if (Config.Options.BetterChases.AllowBustOpportunity && IsWanted && character.IsOnFoot && !character.IsSwimming && !character.IsFalling && Game.Player.WantedLevel < 5)
+                // Don't shoot player in vehicle or on the ground
+                if (Config.Options.BetterChases.RequireLethalForceAuthorization && IsWanted && !ActiveChase.DeadlyForce)
                 {
-                    // Hands up
-                    if (IsGettingBusted && !character.IsBeingStunned && !character.IsRagdoll && !character.IsProne && (Game.IsKeyPressed(Config.Options.SurrenderKey) || Game.IsControlPressed(Config.Options.SurrenderButton)))
+                    if (character.IsInVehicle() || (character.IsBeingStunned || character.IsRagdoll || character.IsProne))
                     {
-                        if (!AreHandsUp)
-                        {
-                            AreHandsUp = true;
-                            character.Task.PlayAnimation("missminuteman_1ig_2", "handsup_enter", 8.0f, 8.0f, -1, (AnimationFlags)2, 0f);
-                        }
+                        StopShooting = true;
+                        //Renderer.ShowSubtitle("Stop shooting");
+                    }
+                    else if (StopShooting)
+                    {
+                        StopShooting = false;
+                        //Renderer.ShowSubtitle("OK shooting");
 
-                        if (AreHandsUp)
+                        foreach (Ped cop in Cops)
                         {
-                            // Force player out of stealth stance
-                            Function.Call(Hash.SET_PED_STEALTH_MOVEMENT, character, false);
-                            // Force player out of "action" stance/mode (combat mode) -- doesn't work when cops are after you, game forces action mode
-                            //Function.Call(Hash.SET_PED_USING_ACTION_MODE, Game.Player.Character, false, -1, "DEFAULT_ACTION");
+                            Function.Call(Hash.SET_PED_AMMO, cop, WeaponHash.StunGun, 10);
+                            Function.Call(Hash.SET_AMMO_IN_CLIP, cop, WeaponHash.StunGun, 10);
                         }
                     }
-                    else if (AreHandsUp)
-                    {
-                        AreHandsUp = false;
-                        character.Task.ClearAnimation("missminuteman_1ig_2", "handsup_enter");
-                    }
 
-                    // Bust Oportunity
-                    if (!IsGettingBusted && (character.IsBeingStunned || character.IsRagdoll || character.IsProne || Game.IsKeyPressed(Config.Options.SurrenderKey) || Game.IsControlPressed(Config.Options.SurrenderButton)) && character.Velocity.Length() <= 4f && !character.IsJumping && !character.IsRunning && !character.IsInCover && !Game.Player.IsAiming && Helpers.IsCopNearby(character.Position, 20f))
+                    // Trying some AI programming... FYI cops refuse to enter vehicles
+                    //if (character.CurrentVehicle.Speed < 3f)
+                    //{
+                    //    foreach (Ped cop in Cops)
+                    //    {
+                    //        if (cop.IsAlive && cop.IsOnFoot && cop.IsInRange(character.Position, 20f) && !cop.IsInRange(character.Position, 6f) && !CopsMovingToCar.Contains(cop) && CopsMovingToCar.Count <= 2)
+                    //        {
+                    //            Renderer.ShowSubtitle("Go!");
+                    //            cop.Task.ClearAllImmediately();
+                    //            Function.Call(Hash.TASK_GO_TO_ENTITY_WHILE_AIMING_AT_ENTITY, cop, character.CurrentVehicle, character, 3f, false);
+                    //            cop.AlwaysKeepTask = true;
+                    //            CopsMovingToCar.Add(cop);
+                    //        }
+                    //        else if (cop.IsInRange(character.Position, 8f))
+                    //        {
+                    //            if (!CopsAimingAtCar.Contains(cop))
+                    //            {
+                    //                Renderer.ShowSubtitle("Arrest!");
+                    //                cop.Task.ClearAllImmediately();
+                    //                cop.Task.EnterVehicle(character.CurrentVehicle, VehicleSeat.Driver, 5000, 3f, EnterVehicleFlags.OnlyOpenDoor);
+                    //                cop.AlwaysKeepTask = true;
+                    //                CopsAimingAtCar.Add(cop);
+                    //            }
+                    //            else if (!Function.Call<bool>(Hash.GET_IS_TASK_ACTIVE, cop, 160))
+                    //            {
+                    //                Renderer.ShowSubtitle("Arrest NOW!");
+                    //                cop.Task.EnterVehicle(character.CurrentVehicle, VehicleSeat.Driver, 5000, 3f, EnterVehicleFlags.OnlyOpenDoor);
+                    //                cop.AlwaysKeepTask = true;
+                    //            }
+                    //        }
+                    //    }
+                    //}
+                    //else
+                    //{
+                    //    CopsMovingToCar.Clear();
+                    //    CopsAimingAtCar.Clear();
+                    //}
+                }
+                else if (StopShooting)
+                {
+                    StopShooting = false;
+
+                    //CopsMovingToCar.Clear();
+                    //CopsAimingAtCar.Clear();
+
+                    //Renderer.ShowSubtitle("OK shooting2");
+
+                    foreach (Ped cop in Cops)
+                    {
+                        Function.Call(Hash.SET_PED_AMMO, cop, WeaponHash.StunGun, 10);
+                        Function.Call(Hash.SET_AMMO_IN_CLIP, cop, WeaponHash.StunGun, 10);
+                    }
+                }
+
+
+                //if (Config.Options.BetterChases.RequireLethalForceAuthorization && IsWanted && character.IsInVehicle() && !ActiveChase.DeadlyForce)
+                //{
+                //    //Renderer.ShowSubtitle("Don't shoot");
+
+                //    foreach (Ped cop in Cops)
+                //    {
+                //        Function.Call(Hash.SET_PED_AMMO, cop, cop.Weapons.Current.Hash, 0);
+                //        Function.Call(Hash.SET_AMMO_IN_CLIP, cop, cop.Weapons.Current.Hash, 0);
+                //        Function.Call(Hash.SET_PED_INFINITE_AMMO, cop, false, cop.Weapons.Current.Hash);
+                //        Function.Call(Hash.SET_PED_INFINITE_AMMO_CLIP, cop, false);
+
+                //        //if (cop.IsOnFoot && cop.IsInRange(character.Position, 20f))
+                //        //{
+                //        //    if ((character.CurrentVehicle.Speed > 2f || cop.IsInRange(character.Position, 6f)) && !CopsAimingAtCar.Contains(cop))
+                //        //    {
+                //        //        if (CopsMovingToCar.Contains(cop))
+                //        //        {
+                //        //            CopsMovingToCar.Remove(cop);
+                //        //        }
+
+                //        //        //cop.Task.AimAt(character, -1);
+                //        //        Function.Call(Hash.TASK_AIM_GUN_AT_ENTITY, cop, character, 3000);
+                //        //        //CopsAimingAtCar.Add(cop);
+                //        //    }
+                //        //    else if (!cop.IsInRange(character.Position, 6f) && !CopsMovingToCar.Contains(cop))
+                //        //    {
+                //        //        Function.Call(Hash.TASK_GO_TO_ENTITY_WHILE_AIMING_AT_ENTITY, cop, character, character, 3f, false);
+                //        //        CopsMovingToCar.Add(cop);
+                //        //    }
+                //        //}
+                //        //else if (CopsAimingAtCar.Contains(cop))
+                //        //{
+                //        //    CopsAimingAtCar.Remove(cop);
+                //        //}
+                //        //else if (CopsMovingToCar.Contains(cop))
+                //        //{
+                //        //    CopsMovingToCar.Remove(cop);
+                //        //}
+                //    }
+                //}
+                //else if (CopsAimingAtCar.Count > 0 || CopsMovingToCar.Count > 0)
+                //{
+                //    CopsAimingAtCar.Clear();
+                //    CopsMovingToCar.Clear();
+                //}
+
+                // Allow extra bust opportunities (IsRunning is true when being stunned)
+                if (Config.Options.BetterChases.AllowBustOpportunity && IsWanted && Helpers.WantedLevel < 5 && !character.IsInVehicle() && !character.IsSwimming && !character.IsSwimmingUnderWater && !character.IsFalling && !character.IsJumping && !character.IsWalking && character.Speed < 2f && !character.IsInCover && !Game.Player.IsAiming)
+                {
+                    // Bust Oportunity Enable/Disable
+                    if ((Game.IsKeyPressed(Config.Options.SurrenderKey) || Game.IsControlPressed(Config.Options.SurrenderButton)) && Helpers.IsCopNearby(character.Position, 20f))
                     {
                         IsGettingBusted = true;
+                    }
+                    else if (IsGettingBusted)
+                    {
+                        IsGettingBusted = false;
+                    }
+
+                    // Set Wanted Level to 1 (only way police will arrest) and store wanted level in BustStars
+                    if (IsGettingBusted && Game.Player.WantedLevel > 1)
+                    {
                         BustStars = Game.Player.WantedLevel;
                         Helpers.WantedLevel = 1;
                         Helpers.MaxWantedLevel = 1;
                     }
-                    else if (IsGettingBusted && !AreHandsUp && !character.IsBeingStunned && !character.IsRagdoll && !character.IsProne)
+                    else if (!IsGettingBusted && BustStars > 1)
                     {
-                        IsGettingBusted = false;
                         Helpers.MaxWantedLevel = 5;
                         Helpers.WantedLevel = BustStars;
+                        BustStars = 0;
+                    }
+
+                    // Hands up
+                    if (IsGettingBusted && !character.IsBeingStunned && !character.IsRagdoll && !character.IsProne)
+                    {
+                        if (!AreHandsUp)
+                        {
+                            AreHandsUp = true;
+                            character.Task.PlayAnimation("mp_am_hold_up", "handsup_base", 2f, 1f, -1, AnimationFlags.Loop, 0f);
+                        }
+                    }
+                    else if (!IsGettingBusted && AreHandsUp)
+                    {
+                        AreHandsUp = false;
+                        character.Task.ClearAnimation("mp_am_hold_up", "handsup_base");
                     }
                 }
 
@@ -1450,6 +1585,20 @@ namespace BetterChasesPlus
                 if (IsWanted && character.IsShooting)
                 {
                     IsShooting = true;
+                }
+
+                // Stop cops shooting stun guns
+                if (Config.Options.BetterChases.RequireLethalForceAuthorization && !ActiveChase.DeadlyForce && StopShooting)
+                {
+                    foreach (Ped cop in Cops)
+                    {
+                        cop.Weapons.Select(WeaponHash.StunGun, true);
+                        cop.CanSwitchWeapons = false;
+                        Function.Call(Hash.SET_PED_INFINITE_AMMO, cop, false, WeaponHash.StunGun);
+                        Function.Call(Hash.SET_PED_INFINITE_AMMO_CLIP, cop, false);
+                        Function.Call(Hash.SET_PED_AMMO, cop, WeaponHash.StunGun, -1);
+                        Function.Call(Hash.SET_AMMO_IN_CLIP, cop, WeaponHash.StunGun, -1);
+                    }
                 }
 
                 //Function.Call(Hash.SET_WANTED_LEVEL_DIFFICULTY, Game.Player, 0.0f); // Not sure what this does
