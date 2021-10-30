@@ -554,7 +554,7 @@ namespace BetterChasesPlus
                 //}
 
                 // Allow extra bust opportunities (IsRunning is true when being stunned)
-                if (Config.Options.BetterChases.AllowBustOpportunity && IsWanted && Helpers.WantedLevel < 5 && !character.IsInVehicle() && !character.IsSwimming && !character.IsSwimmingUnderWater && !character.IsFalling && !character.IsJumping && !character.IsWalking && character.Speed < 2f && !character.IsInCover && !Game.Player.IsAiming)
+                if (Config.Options.BetterChases.AllowBustOpportunity && IsWanted && Helpers.WantedLevel < 6 && !character.IsInVehicle() && !character.IsSwimming && !character.IsSwimmingUnderWater && !character.IsFalling && !character.IsJumping && !character.IsWalking && character.Speed < 2f && !character.IsInCover && !Game.Player.IsAiming)
                 {
                     // Bust Oportunity Enable/Disable
                     if ((Game.IsKeyPressed(Config.Options.SurrenderKey) || Game.IsControlPressed(Config.Options.SurrenderButton)) && Helpers.IsCopNearby(character.Position, 20f))
